@@ -259,19 +259,22 @@ Public Sub CreateMboList()
     For Each folderPerson In folderRoot.SubFolders
         countFoldersScanned = countFoldersScanned + 1
         folderHasTargetFile = False
-        
+
         For Each fileMbo In folderPerson.Files
             countFilesScanned = countFilesScanned + 1
-            
+
             '「MBOシート人事評価シート」ファイルのみ対象
             If IsTargetMboExcelFile(fileMbo.Path) Then
                 countFilesTarget = countFilesTarget + 1
                 folderHasTargetFile = True
-                
+
                 rowFileStart = rowSummary   'このファイルの開始行
-                
+
                 '--- 対象ブックを開く
                 Set workbookSource = Nothing
+                Set worksheetSource = Nothing
+                Set worksheetCriteria = Nothing
+
                 On Error Resume Next
                 Set workbookSource = Workbooks.Open(fileMbo.Path, ReadOnly:=True)
                 If Err.Number <> 0 Or workbookSource Is Nothing Then
@@ -283,14 +286,14 @@ Public Sub CreateMboList()
                 End If
                 On Error GoTo 0
                 countFilesOpened = countFilesOpened + 1
-                
+
                 On Error Resume Next
                 Set worksheetSource = workbookSource.Worksheets(MBO_SOURCE_SHEET_NAME)
                 Set worksheetCriteria = workbookSource.Worksheets(MBO_CRITERIA_SHEET_NAME)
                 On Error GoTo 0
-                
+
                 If Not worksheetSource Is Nothing Then
-                    
+
                     '----- 上部ヘッダ部を一度だけ読み取り
                     valueEmployeeNo = worksheetSource.Cells(MboGetRowEmployeeNo, MboGetColEmployeeNo).value
                     valueEmployeeName = NormalizeName(worksheetSource.Cells(MboGetRowEmployeeName, MboGetColEmployeeName).value)
@@ -301,15 +304,15 @@ Public Sub CreateMboList()
                     valueGrade = worksheetSource.Cells(MboGetRowGrade, MboGetColGrade).value
                     valueCareer = worksheetSource.Cells(MboGetRowCareer, MboGetColCareer).value
                     valueCommittee = worksheetSource.Cells(MboGetRowCommittee, MboGetColCommittee).value
-                    
+
                     '----- データ行(18～24行)をループ
                     For rowData = MBO_SOURCE_FIRST_DATA_ROW To MBO_SOURCE_LAST_DATA_ROW
-                        
+
                         '★ 18～24行目の B,C,E列が全て空ならスキップ
                         If IsTargetRowEmpty(worksheetSource, rowData) Then
                             GoTo NextDataRow
                         End If
-                        
+
                         '--- 達成基準シートとの行対応（18→6, 19→7, ...）
                         valueCriteria = vbNullString
                         If Not worksheetCriteria Is Nothing Then
@@ -318,7 +321,7 @@ Public Sub CreateMboList()
                                 valueCriteria = worksheetCriteria.Cells(rowCriteria, MBO_CRITERIA_COL).value
                             End If
                         End If
-                        
+
                         With worksheetSummary
                             .Cells(rowSummary, MboColEmployeeNo).value = valueEmployeeNo
                             .Cells(rowSummary, MboColEmployeeName).value = valueEmployeeName
@@ -329,7 +332,7 @@ Public Sub CreateMboList()
                             .Cells(rowSummary, MboColGrade).value = valueGrade
                             .Cells(rowSummary, MboColCareer).value = valueCareer
                             .Cells(rowSummary, MboColCommittee).value = valueCommittee
-                            
+
                             .Cells(rowSummary, MboColKbn).value = worksheetSource.Cells(rowData, MboGetColKbn).value
                             .Cells(rowSummary, MboColPortableSkill).value = worksheetSource.Cells(rowData, MboGetColPortableSkill).value
                             .Cells(rowSummary, MboColRequiredAction).value = worksheetSource.Cells(rowData, MboGetColRequiredAction).value
@@ -346,11 +349,11 @@ Public Sub CreateMboList()
                             .Cells(rowSummary, MboColBossWeight).value = worksheetSource.Cells(rowData, MboGetColBossWeight).value
                             .Cells(rowSummary, MboColBossDifficulty).value = worksheetSource.Cells(rowData, MboGetColBossDifficulty).value
                             .Cells(rowSummary, MboColGoalScore).value = worksheetSource.Cells(rowData, MboGetColGoalScore).value
-                            
+
                             '==============================
                             ' 数値書式の指定
                             '==============================
-                            
+
                             '--- 本人／上司ウェイト：パーセンテージ表記
                             .Columns(MboColSelfWeight).NumberFormat = "0%"
                             .Columns(MboColBossWeight).NumberFormat = "0%"
@@ -358,27 +361,27 @@ Public Sub CreateMboList()
                             '--- 本人難易度：0.0 表記（1 → 1.0）
                             .Columns(MboColSelfDifficulty).NumberFormat = "0.0"
                             .Columns(MboColBossDifficulty).NumberFormat = "0.0"
-                            
+
                             Dim lastSummaryRow As Long
                             lastSummaryRow = rowSummary - 1   '一覧シートの最終データ行
-                            
+
                             Dim rngSelfDifficulty As Range
                             Dim rngBossDifficulty As Range
-                            
+
                             Set rngSelfDifficulty = .Range( _
                                 .Cells(2, MboColSelfDifficulty), _
                                 .Cells(lastSummaryRow, MboColSelfDifficulty))
-                            
+
                             Set rngBossDifficulty = .Range( _
                                 .Cells(2, MboColBossDifficulty), _
                                 .Cells(lastSummaryRow, MboColBossDifficulty))
-                            
+
                             '========================
                             ' 既存の条件付き書式をクリア
                             '========================
                             rngSelfDifficulty.FormatConditions.Delete
                             rngBossDifficulty.FormatConditions.Delete
-                            
+
                             '========================
                             ' 0.9 以下（空白除外）→ 薄いグレー
                             '========================
@@ -388,14 +391,14 @@ Public Sub CreateMboList()
                                                 rngSelfDifficulty.Cells(1, 1).Address(False, False) & "<=0.9)")
                                 .Interior.Color = RGB(217, 217, 217)
                             End With
-                            
+
                             With rngBossDifficulty.FormatConditions.Add( _
                                     Type:=xlExpression, _
                                     Formula1:="=AND(NOT(ISBLANK(" & rngBossDifficulty.Cells(1, 1).Address(False, False) & ")), " & _
                                                 rngBossDifficulty.Cells(1, 1).Address(False, False) & "<=0.9)")
                                 .Interior.Color = RGB(217, 217, 217)
                             End With
-                            
+
                             '========================
                             ' 1.1 → 薄い黄色
                             '========================
@@ -403,12 +406,12 @@ Public Sub CreateMboList()
                                     Type:=xlCellValue, Operator:=xlEqual, Formula1:="1.1")
                                 .Interior.Color = RGB(255, 242, 204)
                             End With
-                            
+
                             With rngBossDifficulty.FormatConditions.Add( _
                                     Type:=xlCellValue, Operator:=xlEqual, Formula1:="1.1")
                                 .Interior.Color = RGB(255, 242, 204)
                             End With
-                            
+
                             '========================
                             ' 1.2 → 薄い赤
                             '========================
@@ -416,21 +419,21 @@ Public Sub CreateMboList()
                                     Type:=xlCellValue, Operator:=xlEqual, Formula1:="1.2")
                                 .Interior.Color = RGB(248, 203, 173)
                             End With
-                            
+
                             With rngBossDifficulty.FormatConditions.Add( _
                                     Type:=xlCellValue, Operator:=xlEqual, Formula1:="1.2")
                                 .Interior.Color = RGB(248, 203, 173)
                             End With
 
                         End With
-                        
+
                         rowSummary = rowSummary + 1
 NextDataRow:
                     Next rowData
-                    
+
                     'このファイル分の行終端
                     rowFileEnd = rowSummary - 1
-                    
+
                     '--- ファイルごとの縞々（白／薄い青）
                     If rowFileEnd >= rowFileStart Then
                         fileIndex = fileIndex + 1
@@ -439,40 +442,38 @@ NextDataRow:
                         Set rangeBlock = worksheetSummary.Range( _
                             worksheetSummary.Cells(rowFileStart, MboColEmployeeNo), _
                             worksheetSummary.Cells(rowFileEnd, MboColGoalScore))
-                        
+
                         If fileIndex Mod 2 = 0 Then
                             rangeBlock.Interior.Color = RGB(221, 235, 247)   '薄い青
+                        Else
+                            rangeBlock.Interior.Color = vbWhite              '白
+                        End If
 
                         AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, "Processed", "", NormalizeEmployeeNo(valueEmployeeNo), valueEmployeeName, "一覧行 " & CStr(rowFileStart) & "-" & CStr(rowFileEnd) & " に出力"
                     Else
                         countNoDataRows = countNoDataRows + 1
                         AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, "NoData", "", NormalizeEmployeeNo(valueEmployeeNo), valueEmployeeName, "対象行に出力データなし"
-                        Else
+                    End If
                 Else
                     countSheetMissing = countSheetMissing + 1
                     AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, "SheetMissing", "", "", "", MBO_SOURCE_SHEET_NAME & " シートが見つかりません"
-                            rangeBlock.Interior.Color = vbWhite              '白
+                End If
 
 NextMainFile:
                 If Not workbookSource Is Nothing Then
                     workbookSource.Close SaveChanges:=False
                 End If
-                    
-                End If
                 Set workbookSource = Nothing
+                Set worksheetSource = Nothing
+                Set worksheetCriteria = Nothing
             Else
                 AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, "Skipped", "", "", "", "対象ファイル条件に不一致"
-                
-                workbookSource.Close SaveChanges:=False
-                Set worksheetSource = Nothing
+            End If
+        Next fileMbo
 
         If folderHasTargetFile Then
             countFoldersTarget = countFoldersTarget + 1
         End If
-                Set worksheetCriteria = Nothing
-                
-            End If
-        Next fileMbo
     Next folderPerson
     
     '==============================
