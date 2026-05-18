@@ -244,7 +244,7 @@ Public Sub CreateMboList()
         For Each fileMbo In folderPerson.Files
             
             '「MBOシート人事評価シート」ファイルのみ対象
-            If IsTargetMboExcelFile(fileMbo.Name) Then
+            If IsTargetMboExcelFile(fileMbo.Path) Then
                 
                 rowFileStart = rowSummary   'このファイルの開始行
                 
@@ -747,7 +747,7 @@ Public Sub UpdatePrevTermEvaluation(ByVal worksheetSummary As Worksheet)
         For Each fileMbo In folderPerson.Files
 
             '「MBOシート人事評価シート」ファイルのみ対象
-            If IsTargetMboExcelFile(fileMbo.Name) Then
+            If IsTargetMboExcelFile(fileMbo.Path) Then
 
                 Set workbookSource = Workbooks.Open(fileMbo.Path, ReadOnly:=True)
 
