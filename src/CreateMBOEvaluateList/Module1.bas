@@ -182,6 +182,7 @@ Public Sub CreateMboList()
     Dim workbookSource As Workbook
     Dim worksheetSource As Worksheet
     Dim worksheetCriteria As Worksheet
+    Dim worksheetLog As Worksheet
     
     Dim valueEmployeeNo As Variant
     Dim valueEmployeeName As Variant
@@ -197,6 +198,7 @@ Public Sub CreateMboList()
     Dim rowSummary As Long
     Dim rowData As Long
     Dim rowCriteria As Long
+    Dim rowLog As Long
     
     Dim fileIndex As Long
     Dim rowFileStart As Long
@@ -207,6 +209,17 @@ Public Sub CreateMboList()
     Dim defaultRowHeight As Double
     Dim i As Long
     Dim leftCols As Variant
+    Dim folderHasTargetFile As Boolean
+
+    Dim countFoldersScanned As Long
+    Dim countFoldersTarget As Long
+    Dim countFilesScanned As Long
+    Dim countFilesTarget As Long
+    Dim countFilesOpened As Long
+    Dim countRowsOutput As Long
+    Dim countNoDataRows As Long
+    Dim countSheetMissing As Long
+    Dim countOpenError As Long
     
     Set workbookTarget = ThisWorkbook
     
@@ -231,6 +244,10 @@ Public Sub CreateMboList()
     '--- 見出し行を設定（ヘッダ色設定含む）
     Call SetSummaryHeader(worksheetSummary)
     rowSummary = 2
+
+    Set worksheetLog = CreateLogSheet(workbookTarget, worksheetSummary.Name)
+    SetLogHeader worksheetLog
+    rowLog = 2
     
     '--- FSO 初期化
     Set fileSystem = CreateObject("Scripting.FileSystemObject")
@@ -240,16 +257,32 @@ Public Sub CreateMboList()
     
     '--- MBO\配下の各フォルダ＆ファイルを走査
     For Each folderPerson In folderRoot.SubFolders
+        countFoldersScanned = countFoldersScanned + 1
+        folderHasTargetFile = False
         
         For Each fileMbo In folderPerson.Files
+            countFilesScanned = countFilesScanned + 1
             
             '「MBOシート人事評価シート」ファイルのみ対象
             If IsTargetMboExcelFile(fileMbo.Path) Then
+                countFilesTarget = countFilesTarget + 1
+                folderHasTargetFile = True
                 
                 rowFileStart = rowSummary   'このファイルの開始行
                 
                 '--- 対象ブックを開く
+                Set workbookSource = Nothing
+                On Error Resume Next
                 Set workbookSource = Workbooks.Open(fileMbo.Path, ReadOnly:=True)
+                If Err.Number <> 0 Or workbookSource Is Nothing Then
+                    countOpenError = countOpenError + 1
+                    AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, "OpenError", "", "", "", "ブックを開けませんでした: " & Err.Description
+                    Err.Clear
+                    On Error GoTo 0
+                    GoTo NextMainFile
+                End If
+                On Error GoTo 0
+                countFilesOpened = countFilesOpened + 1
                 
                 On Error Resume Next
                 Set worksheetSource = workbookSource.Worksheets(MBO_SOURCE_SHEET_NAME)
@@ -401,6 +434,7 @@ NextDataRow:
                     '--- ファイルごとの縞々（白／薄い青）
                     If rowFileEnd >= rowFileStart Then
                         fileIndex = fileIndex + 1
+                        countRowsOutput = countRowsOutput + (rowFileEnd - rowFileStart + 1)
                         Dim rangeBlock As Range
                         Set rangeBlock = worksheetSummary.Range( _
                             worksheetSummary.Cells(rowFileStart, MboColEmployeeNo), _
@@ -408,15 +442,33 @@ NextDataRow:
                         
                         If fileIndex Mod 2 = 0 Then
                             rangeBlock.Interior.Color = RGB(221, 235, 247)   '薄い青
+
+                        AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, "Processed", "", NormalizeEmployeeNo(valueEmployeeNo), valueEmployeeName, "一覧行 " & CStr(rowFileStart) & "-" & CStr(rowFileEnd) & " に出力"
+                    Else
+                        countNoDataRows = countNoDataRows + 1
+                        AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, "NoData", "", NormalizeEmployeeNo(valueEmployeeNo), valueEmployeeName, "対象行に出力データなし"
                         Else
+                Else
+                    countSheetMissing = countSheetMissing + 1
+                    AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, "SheetMissing", "", "", "", MBO_SOURCE_SHEET_NAME & " シートが見つかりません"
                             rangeBlock.Interior.Color = vbWhite              '白
-                        End If
-                    End If
+
+NextMainFile:
+                If Not workbookSource Is Nothing Then
+                    workbookSource.Close SaveChanges:=False
+                End If
                     
                 End If
+                Set workbookSource = Nothing
+            Else
+                AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, "Skipped", "", "", "", "対象ファイル条件に不一致"
                 
                 workbookSource.Close SaveChanges:=False
                 Set worksheetSource = Nothing
+
+        If folderHasTargetFile Then
+            countFoldersTarget = countFoldersTarget + 1
+        End If
                 Set worksheetCriteria = Nothing
                 
             End If
@@ -480,9 +532,24 @@ NextDataRow:
         Next i
         
     End With
+
+        AppendLogRow worksheetLog, rowLog, "(SUMMARY)", "", "Summary", "", "", "", "走査フォルダ数: " & CStr(countFoldersScanned)
+        AppendLogRow worksheetLog, rowLog, "(SUMMARY)", "", "Summary", "", "", "", "対象フォルダ数: " & CStr(countFoldersTarget)
+        AppendLogRow worksheetLog, rowLog, "(SUMMARY)", "", "Summary", "", "", "", "走査ファイル数: " & CStr(countFilesScanned)
+        AppendLogRow worksheetLog, rowLog, "(SUMMARY)", "", "Summary", "", "", "", "対象ファイル数: " & CStr(countFilesTarget)
+        AppendLogRow worksheetLog, rowLog, "(SUMMARY)", "", "Summary", "", "", "", "オープン成功数: " & CStr(countFilesOpened)
+        AppendLogRow worksheetLog, rowLog, "(SUMMARY)", "", "Summary", "", "", "", "出力行数: " & CStr(countRowsOutput)
+        AppendLogRow worksheetLog, rowLog, "(SUMMARY)", "", "Summary", "", "", "", "NoData件数: " & CStr(countNoDataRows)
+        AppendLogRow worksheetLog, rowLog, "(SUMMARY)", "", "Summary", "", "", "", "元シートなし件数: " & CStr(countSheetMissing)
+        AppendLogRow worksheetLog, rowLog, "(SUMMARY)", "", "Summary", "", "", "", "オープン失敗数: " & CStr(countOpenError)
+
+        worksheetLog.Columns("A:I").EntireColumn.AutoFit
     
     MsgBox "一覧作成が完了しました。" & vbCrLf & _
-           "シート名: " & worksheetSummary.Name, vbInformation
+            "シート名: " & worksheetSummary.Name & vbCrLf & _
+            "ログシート: " & worksheetLog.Name & vbCrLf & _
+            "走査フォルダ数: " & countFoldersScanned & vbCrLf & _
+            "対象ファイル数: " & countFilesTarget, vbInformation
     
 End Sub
 
@@ -645,11 +712,16 @@ Public Sub UpdatePrevTermEvaluation(ByVal worksheetSummary As Worksheet)
 
     Dim workbookSource As Workbook
     Dim worksheetEval As Worksheet
+    Dim worksheetSource As Worksheet
+    Dim worksheetLog As Worksheet
 
-    Dim dictRangeByName As Object 'Scripting.Dictionary
+    Dim dictRangeByEmployeeNo As Object 'Scripting.Dictionary
+    Dim dictRangeByName As Object 'Scripting.Dictionary（フォールバック）
     Dim lastRow As Long
     Dim r As Long
+    Dim rowLog As Long
 
+    Dim keyEmployeeNo As String
     Dim keyName As String
     Dim startRow As Long
     Dim endRow As Long
@@ -664,6 +736,18 @@ Public Sub UpdatePrevTermEvaluation(ByVal worksheetSummary As Worksheet)
     Dim rngMerge As Range
     Dim outFirstCol As Long
     Dim outLastCol As Long
+    Dim folderHasTargetFile As Boolean
+
+    Dim countFoldersScanned As Long
+    Dim countFoldersTarget As Long
+    Dim countFilesScanned As Long
+    Dim countFilesTarget As Long
+    Dim countFilesOpened As Long
+    Dim countMatchByEmployeeNo As Long
+    Dim countMatchByName As Long
+    Dim countNoMatch As Long
+    Dim countSheetMissing As Long
+    Dim countOpenError As Long
 
     Set workbookTarget = ThisWorkbook
 
@@ -679,7 +763,9 @@ Public Sub UpdatePrevTermEvaluation(ByVal worksheetSummary As Worksheet)
     End If
 
     '------------------------------
-    ' 一覧(B列=氏名)の「開始行～終了行」インデックス作成
+    ' 一覧の「開始行～終了行」インデックス作成
+    '  - 主キー：社員No.
+    '  - 補助キー：氏名（社員No.が取れない場合のフォールバック）
     '------------------------------
     lastRow = worksheetSummary.Cells(worksheetSummary.Rows.Count, MboColEmployeeName).End(xlUp).Row
     If lastRow < 2 Then
@@ -687,32 +773,63 @@ Public Sub UpdatePrevTermEvaluation(ByVal worksheetSummary As Worksheet)
         Exit Sub
     End If
 
+    Set dictRangeByEmployeeNo = CreateObject("Scripting.Dictionary")
+    dictRangeByEmployeeNo.CompareMode = 1 'vbTextCompare
+
     Set dictRangeByName = CreateObject("Scripting.Dictionary")
     dictRangeByName.CompareMode = 1 'vbTextCompare
+
+    Set worksheetLog = GetLogSheetForSummary(workbookTarget, worksheetSummary.Name)
+    If worksheetLog Is Nothing Then
+        Set worksheetLog = CreateLogSheet(workbookTarget, worksheetSummary.Name)
+        SetLogHeader worksheetLog
+        rowLog = 2
+        AppendLogRow worksheetLog, rowLog, "(INFO)", "", "Info", "", "", "", "既存LOGが無いため新規作成しました。"
+    Else
+        rowLog = worksheetLog.Cells(worksheetLog.Rows.Count, 1).End(xlUp).Row + 1
+        If rowLog < 2 Then rowLog = 2
+    End If
 
     '前提：CreateMboListの出力は同一氏名が連続して並ぶ
     r = 2
     Do While r <= lastRow
 
+        keyEmployeeNo = NormalizeEmployeeNo(worksheetSummary.Cells(r, MboColEmployeeNo).value)
         keyName = NormalizeName(CStr(worksheetSummary.Cells(r, MboColEmployeeName).value))
 
-        If Len(keyName) = 0 Then
+        If Len(keyEmployeeNo) = 0 And Len(keyName) = 0 Then
             r = r + 1
         Else
             startRow = r
             endRow = r
 
             Do While endRow + 1 <= lastRow
-                If NormalizeName(CStr(worksheetSummary.Cells(endRow + 1, MboColEmployeeName).value)) = keyName Then
-                    endRow = endRow + 1
+                If Len(keyEmployeeNo) > 0 Then
+                    If NormalizeEmployeeNo(worksheetSummary.Cells(endRow + 1, MboColEmployeeNo).value) = keyEmployeeNo Then
+                        endRow = endRow + 1
+                    Else
+                        Exit Do
+                    End If
                 Else
-                    Exit Do
+                    If NormalizeName(CStr(worksheetSummary.Cells(endRow + 1, MboColEmployeeName).value)) = keyName Then
+                        endRow = endRow + 1
+                    Else
+                        Exit Do
+                    End If
                 End If
             Loop
 
-            If Not dictRangeByName.Exists(keyName) Then
-                'Valueに配列（開始行, 終了行）
-                dictRangeByName.Add keyName, Array(startRow, endRow)
+            If Len(keyEmployeeNo) > 0 Then
+                If Not dictRangeByEmployeeNo.Exists(keyEmployeeNo) Then
+                    dictRangeByEmployeeNo.Add keyEmployeeNo, Array(startRow, endRow)
+                End If
+            End If
+
+            If Len(keyName) > 0 Then
+                If Not dictRangeByName.Exists(keyName) Then
+                    'Valueに配列（開始行, 終了行）
+                    dictRangeByName.Add keyName, Array(startRow, endRow)
+                End If
             End If
 
             r = endRow + 1
@@ -748,25 +865,59 @@ Public Sub UpdatePrevTermEvaluation(ByVal worksheetSummary As Worksheet)
     Set folderRoot = fileSystem.GetFolder(pathPrevRoot)
 
     For Each folderPerson In folderRoot.SubFolders
+        countFoldersScanned = countFoldersScanned + 1
+        folderHasTargetFile = False
+
         For Each fileMbo In folderPerson.Files
+            countFilesScanned = countFilesScanned + 1
 
             '「MBOシート人事評価シート」ファイルのみ対象
             If IsTargetMboExcelFile(fileMbo.Path) Then
+                countFilesTarget = countFilesTarget + 1
+                folderHasTargetFile = True
 
+                Set workbookSource = Nothing
+                On Error Resume Next
                 Set workbookSource = Workbooks.Open(fileMbo.Path, ReadOnly:=True)
+                If Err.Number <> 0 Or workbookSource Is Nothing Then
+                    countOpenError = countOpenError + 1
+                    AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, "OpenError", "", "", "", "ブックを開けませんでした: " & Err.Description
+                    Err.Clear
+                    On Error GoTo 0
+                    GoTo NextPrevFile
+                End If
+                On Error GoTo 0
+                countFilesOpened = countFilesOpened + 1
 
                 On Error Resume Next
                 Set worksheetEval = workbookSource.Worksheets(MBO_TARGET_SHEET_NAME)
+                Set worksheetSource = workbookSource.Worksheets(MBO_SOURCE_SHEET_NAME)
                 On Error GoTo 0
 
                 If Not worksheetEval Is Nothing Then
 
-                    keyName = NormalizeName(CStr(worksheetEval.Cells(MboPrevSrcNameRow, MboPrevSrcNameCol).value))
+                    keyEmployeeNo = vbNullString
+                    If Not worksheetSource Is Nothing Then
+                        keyEmployeeNo = NormalizeEmployeeNo(worksheetSource.Cells(MboGetRowEmployeeNo, MboGetColEmployeeNo).value)
+                    End If
 
-                    If Len(keyName) > 0 And dictRangeByName.Exists(keyName) Then
-
-                        startRow = CLng(dictRangeByName(keyName)(0))
-                        endRow = CLng(dictRangeByName(keyName)(1))
+                    If Len(keyEmployeeNo) > 0 And dictRangeByEmployeeNo.Exists(keyEmployeeNo) Then
+                        startRow = CLng(dictRangeByEmployeeNo(keyEmployeeNo)(0))
+                        endRow = CLng(dictRangeByEmployeeNo(keyEmployeeNo)(1))
+                        countMatchByEmployeeNo = countMatchByEmployeeNo + 1
+                        keyName = NormalizeName(CStr(worksheetEval.Cells(MboPrevSrcNameRow, MboPrevSrcNameCol).value))
+                    Else
+                        keyName = NormalizeName(CStr(worksheetEval.Cells(MboPrevSrcNameRow, MboPrevSrcNameCol).value))
+                        If Len(keyName) > 0 And dictRangeByName.Exists(keyName) Then
+                            startRow = CLng(dictRangeByName(keyName)(0))
+                            endRow = CLng(dictRangeByName(keyName)(1))
+                            countMatchByName = countMatchByName + 1
+                        Else
+                            countNoMatch = countNoMatch + 1
+                            AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, "NoMatch", "", keyEmployeeNo, keyName, "社員No/氏名とも一致なし"
+                            GoTo NextPrevFile
+                        End If
+                    End If
 
                         '値を取得
                         valueMboRank = worksheetEval.Cells(MboPrevSrcMboRow, MboPrevSrcRankCol).value
@@ -797,13 +948,31 @@ Public Sub UpdatePrevTermEvaluation(ByVal worksheetSummary As Worksheet)
                             End If
                         End With
 
+                    If Len(keyEmployeeNo) > 0 And dictRangeByEmployeeNo.Exists(keyEmployeeNo) Then
+                        AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, "Matched", "EmployeeNo", keyEmployeeNo, keyName, "一覧行 " & CStr(startRow) & "-" & CStr(endRow) & " に反映"
+                    Else
+                        AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, "Matched", "Name", keyEmployeeNo, keyName, "一覧行 " & CStr(startRow) & "-" & CStr(endRow) & " に反映"
                     End If
+                Else
+                    countSheetMissing = countSheetMissing + 1
+                    AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, "SheetMissing", "", "", "", "年間総合評価シートが見つかりません"
                 End If
 
-                workbookSource.Close SaveChanges:=False
+NextPrevFile:
+                If Not workbookSource Is Nothing Then
+                    workbookSource.Close SaveChanges:=False
+                End If
                 Set worksheetEval = Nothing
+                Set worksheetSource = Nothing
+                Set workbookSource = Nothing
+            Else
+                AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, "Skipped", "", "", "", "対象ファイル条件に不一致"
             End If
         Next fileMbo
+
+        If folderHasTargetFile Then
+            countFoldersTarget = countFoldersTarget + 1
+        End If
     Next folderPerson
 
     '------------------------------
@@ -842,7 +1011,25 @@ Public Sub UpdatePrevTermEvaluation(ByVal worksheetSummary As Worksheet)
     
     End With
 
-    MsgBox "前期MBO の追記が完了しました。", vbInformation
+    AppendLogRow worksheetLog, rowLog, "(SUMMARY)", "", "Summary", "", "", "", "走査フォルダ数: " & CStr(countFoldersScanned)
+    AppendLogRow worksheetLog, rowLog, "(SUMMARY)", "", "Summary", "", "", "", "対象フォルダ数: " & CStr(countFoldersTarget)
+    AppendLogRow worksheetLog, rowLog, "(SUMMARY)", "", "Summary", "", "", "", "走査ファイル数: " & CStr(countFilesScanned)
+    AppendLogRow worksheetLog, rowLog, "(SUMMARY)", "", "Summary", "", "", "", "対象ファイル数: " & CStr(countFilesTarget)
+    AppendLogRow worksheetLog, rowLog, "(SUMMARY)", "", "Summary", "", "", "", "オープン成功数: " & CStr(countFilesOpened)
+    AppendLogRow worksheetLog, rowLog, "(SUMMARY)", "", "Summary", "", "", "", "社員No一致数: " & CStr(countMatchByEmployeeNo)
+    AppendLogRow worksheetLog, rowLog, "(SUMMARY)", "", "Summary", "", "", "", "氏名一致数: " & CStr(countMatchByName)
+    AppendLogRow worksheetLog, rowLog, "(SUMMARY)", "", "Summary", "", "", "", "不一致数: " & CStr(countNoMatch)
+    AppendLogRow worksheetLog, rowLog, "(SUMMARY)", "", "Summary", "", "", "", "評価シートなし: " & CStr(countSheetMissing)
+    AppendLogRow worksheetLog, rowLog, "(SUMMARY)", "", "Summary", "", "", "", "オープン失敗数: " & CStr(countOpenError)
+
+    worksheetLog.Columns("A:I").EntireColumn.AutoFit
+
+    MsgBox "前期MBO の追記が完了しました。" & vbCrLf & _
+           "ログシート: " & worksheetLog.Name & vbCrLf & _
+           "走査フォルダ数: " & countFoldersScanned & vbCrLf & _
+           "対象フォルダ数: " & countFoldersTarget & vbCrLf & _
+           "走査ファイル数: " & countFilesScanned & vbCrLf & _
+           "対象ファイル数: " & countFilesTarget, vbInformation
 
 End Sub
 
@@ -856,6 +1043,147 @@ End Sub
 '    Loop
 '    NormalizeName = s
 'End Function
+
+Private Function CreateLogSheet(ByVal wb As Workbook, ByVal summarySheetName As String) As Worksheet
+
+    Dim baseName As String
+    Dim candidateName As String
+    Dim n As Long
+
+    baseName = GetLogSheetNameFromSummaryName(summarySheetName)
+
+    If Len(baseName) > 31 Then
+        baseName = Left$(baseName, 31)
+    End If
+
+    candidateName = baseName
+    n = 1
+    Do While WorksheetExists(wb, candidateName)
+        candidateName = Left$(baseName, 28) & "_" & CStr(n)
+        n = n + 1
+    Loop
+
+    Set CreateLogSheet = wb.Worksheets.Add(After:=wb.Worksheets(wb.Worksheets.Count))
+    CreateLogSheet.Name = candidateName
+
+End Function
+
+Private Function GetLogSheetForSummary(ByVal wb As Workbook, ByVal summarySheetName As String) As Worksheet
+
+    Dim logSheetName As String
+    Dim ws As Worksheet
+
+    logSheetName = GetLogSheetNameFromSummaryName(summarySheetName)
+
+    On Error Resume Next
+    Set ws = wb.Worksheets(logSheetName)
+    On Error GoTo 0
+
+    Set GetLogSheetForSummary = ws
+
+End Function
+
+Private Function GetLogSheetNameFromSummaryName(ByVal summarySheetName As String) As String
+
+    Dim baseName As String
+    Dim suffix As String
+
+    If Left$(summarySheetName, 4) = "MBO_" Then
+        suffix = Mid$(summarySheetName, 5)
+        baseName = "LOG_" & suffix
+    Else
+        baseName = "LOG_" & Format(Now, "yyyymmdd_hhnnss")
+    End If
+
+    If Len(baseName) > 31 Then
+        baseName = Left$(baseName, 31)
+    End If
+
+    GetLogSheetNameFromSummaryName = baseName
+
+End Function
+
+Private Function WorksheetExists(ByVal wb As Workbook, ByVal sheetName As String) As Boolean
+
+    Dim ws As Worksheet
+
+    On Error Resume Next
+    Set ws = wb.Worksheets(sheetName)
+    WorksheetExists = Not ws Is Nothing
+    Set ws = Nothing
+    On Error GoTo 0
+
+End Function
+
+Private Sub SetLogHeader(ByVal worksheetLog As Worksheet)
+
+    With worksheetLog
+        .Cells(1, 1).value = "Time"
+        .Cells(1, 2).value = "Folder"
+        .Cells(1, 3).value = "File"
+        .Cells(1, 4).value = "Status"
+        .Cells(1, 5).value = "MatchType"
+        .Cells(1, 6).value = "EmployeeNo"
+        .Cells(1, 7).value = "Name"
+        .Cells(1, 8).value = "Message"
+        .Cells(1, 9).value = "Path"
+
+        With .Range(.Cells(1, 1), .Cells(1, 9))
+            .Interior.Color = RGB(0, 102, 204)
+            .Font.Color = vbWhite
+            .Font.Bold = True
+        End With
+    End With
+
+End Sub
+
+Private Sub AppendLogRow(ByVal worksheetLog As Worksheet, _
+                         ByRef rowLog As Long, _
+                         ByVal folderName As String, _
+                         ByVal fileName As String, _
+                         ByVal status As String, _
+                         ByVal matchType As String, _
+                         ByVal employeeNo As String, _
+                         ByVal employeeName As String, _
+                         ByVal message As String)
+
+    With worksheetLog
+        .Cells(rowLog, 1).value = Format(Now, "yyyy/mm/dd hh:nn:ss")
+        .Cells(rowLog, 2).value = folderName
+        .Cells(rowLog, 3).value = fileName
+        .Cells(rowLog, 4).value = status
+        .Cells(rowLog, 5).value = matchType
+        .Cells(rowLog, 6).value = employeeNo
+        .Cells(rowLog, 7).value = employeeName
+        .Cells(rowLog, 8).value = message
+
+        If Len(folderName) > 0 And Len(fileName) > 0 Then
+            .Cells(rowLog, 9).value = folderName & Application.PathSeparator & fileName
+        Else
+            .Cells(rowLog, 9).value = ""
+        End If
+    End With
+
+    rowLog = rowLog + 1
+
+End Sub
+
+Private Function NormalizeEmployeeNo(ByVal valueEmployeeNo As Variant) As String
+
+    Dim s As String
+
+    s = CStr(valueEmployeeNo)
+    s = Replace$(s, ChrW(&H3000), " ")
+    s = Trim$(s)
+    s = Replace$(s, " ", vbNullString)
+
+    On Error Resume Next
+    s = StrConv(s, vbNarrow)
+    On Error GoTo 0
+
+    NormalizeEmployeeNo = UCase$(s)
+
+End Function
 
 Private Function NormalizeName(ByVal valueName As String) As String
 
