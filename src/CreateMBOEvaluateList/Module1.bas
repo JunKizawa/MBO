@@ -5,7 +5,7 @@ Option Explicit
 ' 【1. 基本設定】ファイル名・シート名・拡張子などの定数
 '=====================================================================
 Public Const MBO_TARGET_FILE_KEYWORD As String = "MBOシート_人事評価シート" ' 対象となるMBOファイル名のキーワード
-Public MBO_TARGET_FILE_EXTS As Variant: MBO_TARGET_FILE_EXTS = Array("xlsx", "xlsm", "xlsb", "xls") ' 対象拡張子
+Public Const MBO_TARGET_FILE_EXTS As String = "xlsx,xlsm,xlsb,xls" ' 対象拡張子（カンマ区切り文字列）
 Public Const MBO_PREV_FOLDER_NAME As String = "前期MBO" ' 前期MBOフォルダ名
 Public Const MBO_TARGET_SHEET_NAME As String = "年間総合評価" ' 評価対象シート名
 
