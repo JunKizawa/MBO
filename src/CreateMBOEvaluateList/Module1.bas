@@ -535,10 +535,12 @@ Private Function IsTargetMboExcelFile(ByVal filePath As String) As Boolean
     End If
 
     ext = Mid$(lowerName, dotPos + 1)
+    Dim arrExts As Variant
     Dim i As Integer
     IsTargetMboExcelFile = False
-    For i = LBound(MBO_TARGET_FILE_EXTS) To UBound(MBO_TARGET_FILE_EXTS)
-        If ext = MBO_TARGET_FILE_EXTS(i) Then
+    arrExts = Split(MBO_TARGET_FILE_EXTS, ",")
+    For i = LBound(arrExts) To UBound(arrExts)
+        If ext = Trim$(arrExts(i)) Then
             IsTargetMboExcelFile = True
             Exit For
         End If
