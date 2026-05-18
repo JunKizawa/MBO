@@ -1,9 +1,17 @@
 ﻿Attribute VB_Name = "Module1"
 Option Explicit
 
-'==========================
-' 一覧シート側の列定義（出力先）
-'==========================
+'=====================================================================
+' 【1. 基本設定】ファイル名・シート名・拡張子などの定数
+'=====================================================================
+Public Const MBO_TARGET_FILE_KEYWORD As String = "MBOシート_人事評価シート" ' 対象となるMBOファイル名のキーワード
+Public MBO_TARGET_FILE_EXTS As Variant: MBO_TARGET_FILE_EXTS = Array("xlsx", "xlsm", "xlsb", "xls") ' 対象拡張子
+Public Const MBO_PREV_FOLDER_NAME As String = "前期MBO" ' 前期MBOフォルダ名
+Public Const MBO_TARGET_SHEET_NAME As String = "年間総合評価" ' 評価対象シート名
+
+'=====================================================================
+' 【2. 一覧シートの列インデックス（出力先）】
+'=====================================================================
 Public Enum MboListColumn
     MboColEmployeeNo = 1            '社員No.
     MboColEmployeeName = 2          '氏名
@@ -32,9 +40,73 @@ Public Enum MboListColumn
     MboColGoalScore = 25            '目標点数
 End Enum
 
-'==========================
-' 読み取り元シートの「行」定義
-'==========================
+'=====================================================================
+' 【3. 一覧シートのヘッダー文字列定数（出力先）】
+'=====================================================================
+Public Const MBO_HEADER_EMPLOYEE_NO As String = "社員No."
+Public Const MBO_HEADER_EMPLOYEE_NAME As String = "氏名"
+Public Const MBO_HEADER_DEPARTMENT As String = "所属"
+Public Const MBO_HEADER_JOIN_DATE As String = "入社日"
+Public Const MBO_HEADER_SERVICE_YEARS As String = "勤続年数"
+Public Const MBO_HEADER_TITLE As String = "役職"
+Public Const MBO_HEADER_GRADE As String = "等級"
+Public Const MBO_HEADER_CAREER As String = "目指すキャリア"
+Public Const MBO_HEADER_COMMITTEE As String = "所属委員会"
+Public Const MBO_HEADER_KBN As String = "区分"
+Public Const MBO_HEADER_PORTABLE_SKILL As String = "ポータブルスキル"
+Public Const MBO_HEADER_REQUIRED_ACTION As String = "求められる行動"
+Public Const MBO_HEADER_GOAL_NO As String = "目標No."
+Public Const MBO_HEADER_GOAL_A As String = "目標設定A"
+Public Const MBO_HEADER_CRITERIA As String = "達成基準"
+Public Const MBO_HEADER_MEASURE_B As String = "目標達成施策手段B"
+Public Const MBO_HEADER_PARENT_GOAL_NO As String = "親目標No."
+Public Const MBO_HEADER_TERM As String = "次期"
+Public Const MBO_HEADER_DATE_START As String = "期日開始"
+Public Const MBO_HEADER_DATE_END As String = "期日終了"
+Public Const MBO_HEADER_SELF_WEIGHT As String = "本人ウェイト"
+Public Const MBO_HEADER_SELF_DIFFICULTY As String = "本人難易度"
+Public Const MBO_HEADER_BOSS_WEIGHT As String = "上司ウェイト"
+Public Const MBO_HEADER_BOSS_DIFFICULTY As String = "上司難易度"
+Public Const MBO_HEADER_GOAL_SCORE As String = "目標点数"
+
+'=====================================================================
+' 【4. 前期MBO評価値取得用：元シートのセル位置・列番号】
+'=====================================================================
+Public Enum MboPrevSrcRowCol
+    MboPrevSrcNameRow = 5      ' 氏名セルの行番号（J5）
+    MboPrevSrcNameCol = 10     ' 氏名セルの列番号（J列=10）
+    MboPrevSrcMboRow = 10      ' MBO評価値の行番号
+    MboPrevSrcCmRow = 13       ' CM評価値の行番号
+    MboPrevSrcTotalRow = 17    ' 総合評価値の行番号
+    MboPrevSrcRankCol = 3      ' 評価ランクの列番号（C列=3）
+    MboPrevSrcPointCol = 5     ' 合計点の列番号（E列=5）
+End Enum
+
+'=====================================================================
+' 【5. 前期MBO評価値取得用：出力先シートの列番号】
+'=====================================================================
+Public Enum MboPrevOutCol
+    MboPrevOutColMboRank = 26      ' Z列：前期MBOランク
+    MboPrevOutColMboPoint = 27     ' AA列：前期MBO点数
+    MboPrevOutColCmRank = 28       ' AB列：前期CMランク
+    MboPrevOutColCmPoint = 29      ' AC列：前期CM点数
+    MboPrevOutColTotalRank = 30    ' AD列：前期総合ランク
+    MboPrevOutColTotalPoint = 31   ' AE列：前期総合点数
+End Enum
+
+'=====================================================================
+' 【6. 前期MBO評価値取得用：出力先シートのヘッダー文字列】
+'=====================================================================
+Public Const MBO_HEADER_PREV_MBO_RANK As String = "前期 評価ランク（MBOシート 1年間評価）"
+Public Const MBO_HEADER_PREV_MBO_POINT As String = "前期 合計点（MBOシート 1年間評価）"
+Public Const MBO_HEADER_PREV_CM_RANK As String = "前期 評価ランク（CMシート 最終評価）"
+Public Const MBO_HEADER_PREV_CM_POINT As String = "前期 合計点（CMシート 最終評価）"
+Public Const MBO_HEADER_PREV_TOTAL_RANK As String = "前期 評価ランク（総合評価 MBO+CM）"
+Public Const MBO_HEADER_PREV_TOTAL_POINT As String = "前期 合計点（総合評価 MBO+CM）"
+
+'=====================================================================
+' 【7. データ取得用：元シートの行・列インデックス】
+'=====================================================================
 Public Enum MboGetRow
     MboGetRowEmployeeNo = 7         '社員No.
     MboGetRowEmployeeName = 7       '氏名
@@ -47,9 +119,6 @@ Public Enum MboGetRow
     MboGetRowCommittee = 11         '所属委員会
 End Enum
 
-'==========================
-' 読み取り元シートの「列」定義
-'==========================
 Public Enum MboGetColumn
     '--- 上部ヘッダ系
     MboGetColEmployeeNo = 3         '社員No.
@@ -80,18 +149,20 @@ Public Enum MboGetColumn
     MboGetColGoalScore = 15         '目標点数
 End Enum
 
-'==========================
-' 固定値
-'==========================
-Public Const MBO_SOURCE_SHEET_NAME As String = "目標設定シート"
-Public Const MBO_SOURCE_FIRST_DATA_ROW As Long = 18
-Public Const MBO_SOURCE_LAST_DATA_ROW As Long = 24
+'=====================================================================
+' 【8. 固定値（シート名やデータ範囲）】
+'=====================================================================
+Public Const MBO_SOURCE_SHEET_NAME As String = "目標設定シート" ' データ取得元シート名
+Public Const MBO_SOURCE_FIRST_DATA_ROW As Long = 18            ' データ開始行
+Public Const MBO_SOURCE_LAST_DATA_ROW As Long = 24             ' データ終了行
 
-'--- 達成基準シート関連
-Public Const MBO_CRITERIA_SHEET_NAME As String = "達成基準"
-Public Const MBO_CRITERIA_FIRST_ROW As Long = 6     '6～12行が対象
-Public Const MBO_CRITERIA_LAST_ROW As Long = 12
-Public Const MBO_CRITERIA_COL As Long = 5           'E列
+'=====================================================================
+' 【9. 達成基準シート関連の定数】
+'=====================================================================
+Public Const MBO_CRITERIA_SHEET_NAME As String = "達成基準"      ' 達成基準シート名
+Public Const MBO_CRITERIA_FIRST_ROW As Long = 6                 ' 達成基準データ開始行
+Public Const MBO_CRITERIA_LAST_ROW As Long = 12                 ' 達成基準データ終了行
+Public Const MBO_CRITERIA_COL As Long = 5                       ' 達成基準データ列（E列=5）
 
 '==========================
 ' メイン処理
@@ -451,7 +522,7 @@ Private Function IsTargetMboExcelFile(ByVal filePath As String) As Boolean
     End If
 
     '部分一致（大文字小文字無視）
-    If InStr(1, lowerName, LCase$("MBOシート_人事評価シート"), vbTextCompare) = 0 Then
+    If InStr(1, lowerName, LCase$(MBO_TARGET_FILE_KEYWORD), vbTextCompare) = 0 Then
         IsTargetMboExcelFile = False
         Exit Function
     End If
@@ -464,12 +535,14 @@ Private Function IsTargetMboExcelFile(ByVal filePath As String) As Boolean
     End If
 
     ext = Mid$(lowerName, dotPos + 1)
-    Select Case ext
-        Case "xlsx", "xlsm", "xlsb", "xls"
+    Dim i As Integer
+    IsTargetMboExcelFile = False
+    For i = LBound(MBO_TARGET_FILE_EXTS) To UBound(MBO_TARGET_FILE_EXTS)
+        If ext = MBO_TARGET_FILE_EXTS(i) Then
             IsTargetMboExcelFile = True
-        Case Else
-            IsTargetMboExcelFile = False
-    End Select
+            Exit For
+        End If
+    Next i
 
     Exit Function
 
@@ -484,31 +557,31 @@ End Function
 Private Sub SetSummaryHeader(ByVal worksheetSummary As Worksheet)
 
     With worksheetSummary
-        .Cells(1, MboColEmployeeNo).value = "社員No."
-        .Cells(1, MboColEmployeeName).value = "氏名"
-        .Cells(1, MboColDepartment).value = "所属"
-        .Cells(1, MboColJoinDate).value = "入社日"
-        .Cells(1, MboColServiceYears).value = "勤続年数"
-        .Cells(1, MboColTitle).value = "役職"
-        .Cells(1, MboColGrade).value = "等級"
-        .Cells(1, MboColCareer).value = "目指すキャリア"
-        .Cells(1, MboColCommittee).value = "所属委員会"
-        .Cells(1, MboColKbn).value = "区分"
-        .Cells(1, MboColPortableSkill).value = "ポータブルスキル"
-        .Cells(1, MboColRequiredAction).value = "求められる行動"
-        .Cells(1, MboColGoalNo).value = "目標No."
-        .Cells(1, MboColGoalA).value = "目標設定A"
-        .Cells(1, MboColCriteria).value = "達成基準"
-        .Cells(1, MboColMeasureB).value = "目標達成施策手段B"
-        .Cells(1, MboColParentGoalNo).value = "親目標No."
-        .Cells(1, MboColTerm).value = "次期"
-        .Cells(1, MboColDateStart).value = "期日開始"
-        .Cells(1, MboColDateEnd).value = "期日終了"
-        .Cells(1, MboColSelfWeight).value = "本人ウェイト"
-        .Cells(1, MboColSelfDifficulty).value = "本人難易度"
-        .Cells(1, MboColBossWeight).value = "上司ウェイト"
-        .Cells(1, MboColBossDifficulty).value = "上司難易度"
-        .Cells(1, MboColGoalScore).value = "目標点数"
+        .Cells(1, MboColEmployeeNo).value = MBO_HEADER_EMPLOYEE_NO
+        .Cells(1, MboColEmployeeName).value = MBO_HEADER_EMPLOYEE_NAME
+        .Cells(1, MboColDepartment).value = MBO_HEADER_DEPARTMENT
+        .Cells(1, MboColJoinDate).value = MBO_HEADER_JOIN_DATE
+        .Cells(1, MboColServiceYears).value = MBO_HEADER_SERVICE_YEARS
+        .Cells(1, MboColTitle).value = MBO_HEADER_TITLE
+        .Cells(1, MboColGrade).value = MBO_HEADER_GRADE
+        .Cells(1, MboColCareer).value = MBO_HEADER_CAREER
+        .Cells(1, MboColCommittee).value = MBO_HEADER_COMMITTEE
+        .Cells(1, MboColKbn).value = MBO_HEADER_KBN
+        .Cells(1, MboColPortableSkill).value = MBO_HEADER_PORTABLE_SKILL
+        .Cells(1, MboColRequiredAction).value = MBO_HEADER_REQUIRED_ACTION
+        .Cells(1, MboColGoalNo).value = MBO_HEADER_GOAL_NO
+        .Cells(1, MboColGoalA).value = MBO_HEADER_GOAL_A
+        .Cells(1, MboColCriteria).value = MBO_HEADER_CRITERIA
+        .Cells(1, MboColMeasureB).value = MBO_HEADER_MEASURE_B
+        .Cells(1, MboColParentGoalNo).value = MBO_HEADER_PARENT_GOAL_NO
+        .Cells(1, MboColTerm).value = MBO_HEADER_TERM
+        .Cells(1, MboColDateStart).value = MBO_HEADER_DATE_START
+        .Cells(1, MboColDateEnd).value = MBO_HEADER_DATE_END
+        .Cells(1, MboColSelfWeight).value = MBO_HEADER_SELF_WEIGHT
+        .Cells(1, MboColSelfDifficulty).value = MBO_HEADER_SELF_DIFFICULTY
+        .Cells(1, MboColBossWeight).value = MBO_HEADER_BOSS_WEIGHT
+        .Cells(1, MboColBossDifficulty).value = MBO_HEADER_BOSS_DIFFICULTY
+        .Cells(1, MboColGoalScore).value = MBO_HEADER_GOAL_SCORE
         
         '--- ヘッダ装飾（濃い青＋白文字）
         With .Range(.Cells(1, MboColEmployeeNo), .Cells(1, MboColGoalScore))
@@ -554,27 +627,7 @@ End Function
 '==========================
 Public Sub UpdatePrevTermEvaluation(ByVal worksheetSummary As Worksheet)
 
-    Const PREV_FOLDER_NAME As String = "前期MBO"
-    Const TARGET_SHEET_NAME As String = "年間総合評価"
-
-    '名前（氏名）のセル
-    Const SRC_NAME_ROW As Long = 5
-    Const SRC_NAME_COL As Long = 10 'J
-
-    '取得セル（評価ランク=C列、合計点=E列）
-    Const SRC_MBO_ROW As Long = 10
-    Const SRC_CM_ROW As Long = 13
-    Const SRC_TOTAL_ROW As Long = 17
-    Const SRC_RANK_COL As Long = 3  'C
-    Const SRC_POINT_COL As Long = 5 'E
-
-    '一覧シート側（追記先の列：Z以降）
-    Const OUT_COL_MBO_RANK As Long = 26 'Z
-    Const OUT_COL_MBO_POINT As Long = 27 'AA
-    Const OUT_COL_CM_RANK As Long = 28 'AB
-    Const OUT_COL_CM_POINT As Long = 29 'AC
-    Const OUT_COL_TOTAL_RANK As Long = 30 'AD
-    Const OUT_COL_TOTAL_POINT As Long = 31 'AE
+    '（定数はファイル先頭で一括定義）
 
     Dim workbookTarget As Workbook
     Dim pathPrevRoot As String
@@ -613,7 +666,7 @@ Public Sub UpdatePrevTermEvaluation(ByVal worksheetSummary As Worksheet)
         Exit Sub
     End If
 
-    pathPrevRoot = workbookTarget.Path & Application.PathSeparator & PREV_FOLDER_NAME
+    pathPrevRoot = workbookTarget.Path & Application.PathSeparator & MBO_PREV_FOLDER_NAME
     If Dir$(pathPrevRoot, vbDirectory) = vbNullString Then
         MsgBox "前期MBO フォルダが見つかりません。" & vbCrLf & pathPrevRoot, vbExclamation
         Exit Sub
@@ -664,23 +717,23 @@ Public Sub UpdatePrevTermEvaluation(ByVal worksheetSummary As Worksheet)
     ' ヘッダ（Z列以降）を設定
     '------------------------------
     With worksheetSummary
-        .Cells(1, OUT_COL_MBO_RANK).value = "前期 評価ランク（MBOシート 1年間評価）"
-        .Cells(1, OUT_COL_MBO_POINT).value = "前期 合計点（MBOシート 1年間評価）"
-        .Cells(1, OUT_COL_CM_RANK).value = "前期 評価ランク（CMシート 最終評価）"
-        .Cells(1, OUT_COL_CM_POINT).value = "前期 合計点（CMシート 最終評価）"
-        .Cells(1, OUT_COL_TOTAL_RANK).value = "前期 評価ランク（総合評価 MBO+CM）"
-        .Cells(1, OUT_COL_TOTAL_POINT).value = "前期 合計点（総合評価 MBO+CM）"
+        .Cells(1, MboPrevOutColMboRank).value = MBO_HEADER_PREV_MBO_RANK
+        .Cells(1, MboPrevOutColMboPoint).value = MBO_HEADER_PREV_MBO_POINT
+        .Cells(1, MboPrevOutColCmRank).value = MBO_HEADER_PREV_CM_RANK
+        .Cells(1, MboPrevOutColCmPoint).value = MBO_HEADER_PREV_CM_POINT
+        .Cells(1, MboPrevOutColTotalRank).value = MBO_HEADER_PREV_TOTAL_RANK
+        .Cells(1, MboPrevOutColTotalPoint).value = MBO_HEADER_PREV_TOTAL_POINT
 
         'ヘッダ装飾（既存と同じ濃青＋白文字）
-        With .Range(.Cells(1, OUT_COL_MBO_RANK), .Cells(1, OUT_COL_TOTAL_POINT))
+        With .Range(.Cells(1, MboPrevOutColMboRank), .Cells(1, MboPrevOutColTotalPoint))
             .Interior.Color = RGB(0, 102, 204)
             .Font.Color = vbWhite
             .Font.Bold = True
         End With
     End With
 
-    outFirstCol = OUT_COL_MBO_RANK
-    outLastCol = OUT_COL_TOTAL_POINT
+    outFirstCol = MboPrevOutColMboRank
+    outLastCol = MboPrevOutColTotalPoint
 
     '------------------------------
     ' 前期MBO 配下の走査
@@ -697,12 +750,12 @@ Public Sub UpdatePrevTermEvaluation(ByVal worksheetSummary As Worksheet)
                 Set workbookSource = Workbooks.Open(fileMbo.Path, ReadOnly:=True)
 
                 On Error Resume Next
-                Set worksheetEval = workbookSource.Worksheets(TARGET_SHEET_NAME)
+                Set worksheetEval = workbookSource.Worksheets(MBO_TARGET_SHEET_NAME)
                 On Error GoTo 0
 
                 If Not worksheetEval Is Nothing Then
 
-                    keyName = NormalizeName(CStr(worksheetEval.Cells(SRC_NAME_ROW, SRC_NAME_COL).value))
+                    keyName = NormalizeName(CStr(worksheetEval.Cells(MboPrevSrcNameRow, MboPrevSrcNameCol).value))
 
                     If Len(keyName) > 0 And dictRangeByName.Exists(keyName) Then
 
@@ -710,21 +763,21 @@ Public Sub UpdatePrevTermEvaluation(ByVal worksheetSummary As Worksheet)
                         endRow = CLng(dictRangeByName(keyName)(1))
 
                         '値を取得
-                        valueMboRank = worksheetEval.Cells(SRC_MBO_ROW, SRC_RANK_COL).value
-                        valueMboPoint = worksheetEval.Cells(SRC_MBO_ROW, SRC_POINT_COL).value
-                        valueCmRank = worksheetEval.Cells(SRC_CM_ROW, SRC_RANK_COL).value
-                        valueCmPoint = worksheetEval.Cells(SRC_CM_ROW, SRC_POINT_COL).value
-                        valueTotalRank = worksheetEval.Cells(SRC_TOTAL_ROW, SRC_RANK_COL).value
-                        valueTotalPoint = worksheetEval.Cells(SRC_TOTAL_ROW, SRC_POINT_COL).value
+                        valueMboRank = worksheetEval.Cells(MboPrevSrcMboRow, MboPrevSrcRankCol).value
+                        valueMboPoint = worksheetEval.Cells(MboPrevSrcMboRow, MboPrevSrcPointCol).value
+                        valueCmRank = worksheetEval.Cells(MboPrevSrcCmRow, MboPrevSrcRankCol).value
+                        valueCmPoint = worksheetEval.Cells(MboPrevSrcCmRow, MboPrevSrcPointCol).value
+                        valueTotalRank = worksheetEval.Cells(MboPrevSrcTotalRow, MboPrevSrcRankCol).value
+                        valueTotalPoint = worksheetEval.Cells(MboPrevSrcTotalRow, MboPrevSrcPointCol).value
 
                         With worksheetSummary
                             'まず開始行に書く
-                            .Cells(startRow, OUT_COL_MBO_RANK).value = valueMboRank
-                            .Cells(startRow, OUT_COL_MBO_POINT).value = valueMboPoint
-                            .Cells(startRow, OUT_COL_CM_RANK).value = valueCmRank
-                            .Cells(startRow, OUT_COL_CM_POINT).value = valueCmPoint
-                            .Cells(startRow, OUT_COL_TOTAL_RANK).value = valueTotalRank
-                            .Cells(startRow, OUT_COL_TOTAL_POINT).value = valueTotalPoint
+                            .Cells(startRow, MboPrevOutColMboRank).value = valueMboRank
+                            .Cells(startRow, MboPrevOutColMboPoint).value = valueMboPoint
+                            .Cells(startRow, MboPrevOutColCmRank).value = valueCmRank
+                            .Cells(startRow, MboPrevOutColCmPoint).value = valueCmPoint
+                            .Cells(startRow, MboPrevOutColTotalRank).value = valueTotalRank
+                            .Cells(startRow, MboPrevOutColTotalPoint).value = valueTotalPoint
 
                             '複数行なら縦結合（Z～AE を各列ごとに）
                             If endRow > startRow Then
