@@ -515,11 +515,15 @@ Private Function IsTargetMboExcelFile(ByVal filePath As String) As Boolean
     End If
 
     '隠し/システム属性は除外
+    On Error Resume Next
     attr = GetAttr(filePath)
-    If (attr And vbHidden) <> 0 Or (attr And vbSystem) <> 0 Then
-        IsTargetMboExcelFile = False
-        Exit Function
+    If Err.Number = 0 Then
+        If (attr And vbHidden) <> 0 Or (attr And vbSystem) <> 0 Then
+            IsTargetMboExcelFile = False
+            Exit Function
+        End If
     End If
+    On Error GoTo 0
 
     '部分一致（大文字小文字無視）
     If InStr(1, lowerName, LCase$(MBO_TARGET_FILE_KEYWORD), vbTextCompare) = 0 Then
