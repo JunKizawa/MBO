@@ -1,18 +1,29 @@
-﻿Attribute VB_Name = "Module1"
-Option Explicit
+﻿'=====================================================================
+' モジュール: Module1
+' 説明: このモジュールは、MBO評価リストの作成を担当します。
+' 定数、列挙型、Excelファイルを処理して評価データを含む
+' サマリーシートを生成するための関数が含まれています。
+'=====================================================================
 
 '=====================================================================
 ' 【1. 基本設定】ファイル名・シート名・拡張子などの定数
+' 説明: モジュール全体で使用されるファイル名、シート名、拡張子の定数。
 '=====================================================================
+
 Public Const MBO_TARGET_FILE_KEYWORD As String = "MBOシート_人事評価シート" ' 対象となるMBOファイル名のキーワード
 Public Const MBO_TARGET_FILE_EXTS As String = "xlsx,xlsm,xlsb,xls" ' 対象拡張子（カンマ区切り文字列）
-Public Const MBO_PREV_FOLDER_NAME As String = "前期MBO" ' 前期MBOフォルダ名
+Public Const MBO_ROOT_FOLDER_NAME As String = "MBO" ' MBOルートフォルダ名
+Public Const MBO_PLAN_FOLDER_NAME As String = "00_計画" ' 初期計画一覧の参照フォルダ名
+Public Const MBO_UPPER_FOLDER_NAME As String = "01_上期評価" ' 上期評価一覧の参照フォルダ名
+Public Const MBO_PREV_FOLDER_NAME As String = "02_下期評価（前期）" ' 前期追加の参照フォルダ名
 Public Const MBO_TARGET_SHEET_NAME As String = "年間総合評価" ' 評価対象シート名
 Public Const MBO_INITIAL_SHEET_PREFIX As String = "MBO初期計画一覧_"
 
 '=====================================================================
 ' 【2. 一覧シートの列インデックス（出力先）】
+' 説明: サマリーシート内の列インデックスを管理する列挙型。
 '=====================================================================
+
 Public Enum MboListColumn
     MboColEmployeeNo = 1            '社員No.
     MboColEmployeeName = 2          '氏名
@@ -43,7 +54,9 @@ End Enum
 
 '=====================================================================
 ' 【3. 一覧シートのヘッダー文字列定数（出力先）】
+' 説明: サマリーシートで使用されるヘッダー文字列の定数。
 '=====================================================================
+
 Public Const MBO_HEADER_EMPLOYEE_NO As String = "社員No."
 Public Const MBO_HEADER_EMPLOYEE_NAME As String = "氏名"
 Public Const MBO_HEADER_DEPARTMENT As String = "所属"
@@ -72,7 +85,9 @@ Public Const MBO_HEADER_GOAL_SCORE As String = "目標点数"
 
 '=====================================================================
 ' 【4. 前期MBO評価値取得用：元シートのセル位置・列番号】
+' 説明: 前期MBO評価値を取得するための元シートの行・列インデックスを管理する列挙型。
 '=====================================================================
+
 Public Enum MboPrevSrcRowCol
     MboPrevSrcNameRow = 5      ' 氏名セルの行番号（J5）
     MboPrevSrcNameCol = 10     ' 氏名セルの列番号（J列=10）
@@ -85,7 +100,9 @@ End Enum
 
 '=====================================================================
 ' 【5. 前期MBO評価値取得用：出力先シートの列番号】
+' 説明: 前期MBO評価値を格納する出力先シートの列インデックスを管理する列挙型。
 '=====================================================================
+
 Public Enum MboPrevOutCol
     MboPrevOutColMboRank = 26      ' Z列：前期MBOランク
     MboPrevOutColMboPoint = 27     ' AA列：前期MBO点数
@@ -97,7 +114,9 @@ End Enum
 
 '=====================================================================
 ' 【6. 前期MBO評価値取得用：出力先シートのヘッダー文字列】
+' 説明: 前期MBO評価値を格納する出力先シートのヘッダー文字列の定数。
 '=====================================================================
+
 Public Const MBO_HEADER_PREV_MBO_RANK As String = "前期 評価ランク（MBOシート 1年間評価）"
 Public Const MBO_HEADER_PREV_MBO_POINT As String = "前期 合計点（MBOシート 1年間評価）"
 Public Const MBO_HEADER_PREV_CM_RANK As String = "前期 評価ランク（CMシート 最終評価）"
@@ -107,7 +126,9 @@ Public Const MBO_HEADER_PREV_TOTAL_POINT As String = "前期 合計点（総合�
 
 '=====================================================================
 ' 【7. データ取得用：元シートの行・列インデックス】
+' 説明: データを取得するための元シートの行・列インデックスを管理する列挙型。
 '=====================================================================
+
 Public Enum MboGetRow
     MboGetRowEmployeeNo = 7         '社員No.
     MboGetRowEmployeeName = 7       '氏名
@@ -152,7 +173,9 @@ End Enum
 
 '=====================================================================
 ' 【8. 固定値（シート名やデータ範囲）】
+' 説明: シート名やデータ範囲などの固定値を管理する定数。
 '=====================================================================
+
 Public Const MBO_SOURCE_SHEET_NAME As String = "目標設定シート" ' データ取得元シート名
 Public Const MBO_SOURCE_FIRST_DATA_ROW As Long = 18            ' データ開始行
 Public Const MBO_SOURCE_LAST_DATA_ROW As Long = 24             ' データ終了行
@@ -183,14 +206,15 @@ Public Const MBO_UPPER_RANK_COL_V As Long = 22
 Public Const MBO_UPPER_RANK_COL_X As Long = 24
 Public Const MBO_UPPER_OUTPUT_TEXT_COLUMN_WIDTH As Double = 50 '約350px
 
-Public Const MBO_FOLDER_NAME As String = "MBO"
 Public Const MBO_OPEN_UPDATE_LINKS_NEVER As Long = 0
 Public Const SHEET_TAB_COLOR_LOG As Long = 15132390 'RGB(230,230,230)
 Public Const MERGED_FONT_SIZE_DELTA As Double = 2
 
 '=====================================================================
 ' 【9. 共通MsgBox関連定数】
+' 説明: モジュール全体で使用される共通メッセージボックス文字列の定数。
 '=====================================================================
+
 Public Const MSG_SAVE_REQUIRED As String = "このブックを一度保存してから実行してください。"
 Public Const MSG_FOLDER_MBO_NOT_FOUND As String = "MBO フォルダが見つかりません。"
 Public Const MSG_FOLDER_PREV_MBO_NOT_FOUND As String = "前期MBO フォルダが見つかりません。"
@@ -205,7 +229,9 @@ Public Const MSG_LABEL_LOG_SHEET As String = "ログシート: "
 
 '=====================================================================
 ' 【10. 共通LOG関連定数】
+' 説明: ログメッセージやステータスを管理する定数。
 '=====================================================================
+
 Public Const LOG_FOLDER_SUMMARY As String = "(SUMMARY)"
 Public Const LOG_FOLDER_INFO As String = "(INFO)"
 
@@ -265,7 +291,9 @@ Public Const MBO_UPPER_HEADER_TOTAL_SUFFIX As String = "合計"
 
 '=====================================================================
 ' 【11. 達成基準シート関連の定数】
+' 説明: 「達成基準」シートに関連する定数。
 '=====================================================================
+
 Public Const MBO_CRITERIA_SHEET_NAME As String = "達成基準"      ' 達成基準シート名
 Public Const MBO_CRITERIA_FIRST_ROW As Long = 6                 ' 達成基準データ開始行
 Public Const MBO_CRITERIA_LAST_ROW As Long = 12                 ' 達成基準データ終了行
@@ -274,6 +302,14 @@ Public Const MBO_CRITERIA_COL As Long = 5                       ' 達成基準�
 '==========================
 ' メイン処理
 '==========================
+' サブルーチン: CreateMboList
+' 説明: MBO評価リストを作成するメインサブルーチン。
+' フォルダを走査し、ファイルを処理して評価データを含む
+' サマリーシートを生成します。
+' パラメータ: なし
+' 戻り値: なし
+'==========================
+
 Public Sub CreateMboList()
 
     Dim workbookTarget As Workbook
@@ -337,7 +373,7 @@ Public Sub CreateMboList()
         Exit Sub
     End If
     
-    pathMbo = workbookTarget.Path & Application.PathSeparator & "MBO"
+    pathMbo = workbookTarget.Path & Application.PathSeparator & MBO_ROOT_FOLDER_NAME & Application.PathSeparator & MBO_PLAN_FOLDER_NAME
     If Dir$(pathMbo, vbDirectory) = vbNullString Then
         MsgBox MSG_FOLDER_MBO_NOT_FOUND & vbCrLf & pathMbo, vbExclamation
         Exit Sub
@@ -665,13 +701,14 @@ NextMainFile:
 End Sub
 
 '==========================================================
-' 指定パスのファイルが
-'  - ファイル名に「MBOシート_人事評価シート」を含む（部分一致）
-'  - Excel拡張子（xlsx/xlsm/xlsb/xls）
-'  - かつ「隠し/システム」ではない
-'  - かつ Office一時/ロック（~$）ではない
-' なら True
+' 関数: IsTargetMboExcelFile
+' 説明: 指定されたファイルが対象のMBO Excelファイルかどうかを判定します。
+' ファイル名、拡張子、属性をチェックします。
+' パラメータ:
+'   - filePath: String, チェックするファイルのパス。
+' 戻り値: Boolean, 対象ファイルの場合はTrue、それ以外はFalse。
 '==========================================================
+
 Private Function IsTargetMboExcelFile(ByVal filePath As String) As Boolean
 
     Dim fileNameOnly As String
@@ -885,7 +922,7 @@ Public Sub CreateMboUpperHalfList()
         Exit Sub
     End If
 
-    pathMbo = workbookTarget.Path & Application.PathSeparator & MBO_FOLDER_NAME
+    pathMbo = workbookTarget.Path & Application.PathSeparator & MBO_ROOT_FOLDER_NAME & Application.PathSeparator & MBO_UPPER_FOLDER_NAME
     If Dir$(pathMbo, vbDirectory) = vbNullString Then
         MsgBox MSG_FOLDER_MBO_NOT_FOUND & vbCrLf & pathMbo, vbExclamation
         Exit Sub
@@ -1038,6 +1075,8 @@ NextUpperMainFile:
             MSG_LABEL_SHEET_NAME & worksheetSummary.Name & vbCrLf & _
             MSG_LABEL_LOG_SHEET & worksheetLog.Name & vbCrLf & _
             LOG_MSG_SUM_FOLDERS_SCANNED & countFoldersScanned & vbCrLf & _
+            LOG_MSG_SUM_FOLDERS_TARGET & countFoldersTarget & vbCrLf & _
+            LOG_MSG_SUM_FILES_SCANNED & countFilesScanned & vbCrLf & _
             LOG_MSG_SUM_FILES_TARGET & countFilesTarget, vbInformation
 
 End Sub
@@ -1076,6 +1115,10 @@ Private Function SetUpperHalfSummaryHeader(ByVal worksheetSummary As Worksheet, 
         worksheetSummary.Cells(1, outCol).value = GetUpperMergedHeaderText(worksheetSource, srcCol)
         outCol = outCol + 1
     Next
+
+        '--- 目標設定シートO列の後ろに「達成基準」シートE列（目標設定(達成基準):A）を追加
+        worksheetSummary.Cells(1, outCol).value = "達成基準"
+        outCol = outCol + 1
 
     For Each srcCol In scoreCols
         worksheetSummary.Cells(1, outCol).value = GetUpperMergedHeaderText(worksheetSource, srcCol)
@@ -1142,6 +1185,24 @@ Private Sub WriteUpperHalfSummaryRow(ByVal worksheetSummary As Worksheet, _
         worksheetSummary.Cells(outRow, outCol).value = worksheetSource.Cells(sourceRow, srcCol).value
         outCol = outCol + 1
     Next
+
+        '--- 目標設定シートO列の後ろに「達成基準」シートE列（目標設定(達成基準):A）を追加
+        Dim wsCriteria As Worksheet
+        Dim criteriaValue As Variant
+        On Error Resume Next
+        Set wsCriteria = worksheetSource.Parent.Worksheets("達成基準")
+        On Error GoTo 0
+        criteriaValue = ""
+        If Not wsCriteria Is Nothing Then
+            '「達成基準」シートの該当行は、sourceRow(18～24)→6～12行目
+            Dim criteriaRow As Long
+            criteriaRow = 6 + (sourceRow - 18)
+            If criteriaRow >= 6 And criteriaRow <= 12 Then
+                criteriaValue = wsCriteria.Cells(criteriaRow, 5).value 'E列
+            End If
+        End If
+        worksheetSummary.Cells(outRow, outCol).value = criteriaValue
+        outCol = outCol + 1
 
     For Each srcCol In scoreCols
         worksheetSummary.Cells(outRow, outCol).value = worksheetSource.Cells(sourceRow, srcCol).value
@@ -1545,7 +1606,7 @@ Public Sub UpdatePrevTermEvaluation(ByVal worksheetSummary As Worksheet)
         Exit Sub
     End If
 
-    pathPrevRoot = workbookTarget.Path & Application.PathSeparator & MBO_PREV_FOLDER_NAME
+    pathPrevRoot = workbookTarget.Path & Application.PathSeparator & MBO_ROOT_FOLDER_NAME & Application.PathSeparator & MBO_PREV_FOLDER_NAME
     If Dir$(pathPrevRoot, vbDirectory) = vbNullString Then
         MsgBox MSG_FOLDER_PREV_MBO_NOT_FOUND & vbCrLf & pathPrevRoot, vbExclamation
         Exit Sub
