@@ -15,6 +15,7 @@ Public Const MBO_TARGET_FILE_EXTS As String = "xlsx,xlsm,xlsb,xls" ' 対象拡�
 Public Const MBO_ROOT_FOLDER_NAME As String = "MBO" ' MBOルートフォルダ名
 Public Const MBO_PLAN_FOLDER_NAME As String = "00_計画" ' 初期計画一覧の参照フォルダ名
 Public Const MBO_UPPER_FOLDER_NAME As String = "01_上期評価" ' 上期評価一覧の参照フォルダ名
+Public Const MBO_LOWER_FOLDER_NAME As String = "02_下期評価" ' 下期評価一覧の参照フォルダ名
 Public Const MBO_PREV_FOLDER_NAME As String = "02_下期評価（前期）" ' 前期追加の参照フォルダ名
 Public Const MBO_TARGET_SHEET_NAME As String = "年間総合評価" ' 評価対象シート名
 Public Const MBO_INITIAL_SHEET_PREFIX As String = "MBO初期計画一覧_"
@@ -182,6 +183,8 @@ Public Const MBO_SOURCE_LAST_DATA_ROW As Long = 24             ' データ終了
 
 Public Const MBO_UPPER_SOURCE_SHEET_NAME As String = "目標管理シート(上期)"
 Public Const MBO_UPPER_SHEET_PREFIX As String = "MBO上期評価一覧_"
+Public Const MBO_LOWER_SOURCE_SHEET_NAME As String = "目標管理シート(下期)"
+Public Const MBO_LOWER_SHEET_PREFIX As String = "MBO下期評価一覧_"
 Public Const MBO_UPPER_HEADER_ROW As Long = 6
 Public Const MBO_UPPER_HEADER_VALUE_ROW As Long = 7
 Public Const MBO_UPPER_CAREER_ROW As Long = 9
@@ -193,6 +196,7 @@ Public Const MBO_UPPER_DETAIL_LAST_ROW As Long = 24
 Public Const MBO_UPPER_TOTAL_ROW As Long = 25
 Public Const MBO_UPPER_PERIOD_COL As Long = 7
 Public Const MBO_UPPER_PERIOD_VALUE As String = "上期"
+Public Const MBO_LOWER_PERIOD_VALUE As String = "下期"
 Public Const MBO_UPPER_CAREER_HEADER_COL As Long = 19
 Public Const MBO_UPPER_CAREER_VALUE_COL As Long = 22
 Public Const MBO_UPPER_EVALUATOR_COL As Long = 22
@@ -236,13 +240,22 @@ Public Const LOG_FOLDER_SUMMARY As String = "(SUMMARY)"
 Public Const LOG_FOLDER_INFO As String = "(INFO)"
 
 Public Const LOG_STATUS_INFO001 As String = "INFO001"
-Public Const LOG_STATUS_INFO002 As String = "INFO002"
 Public Const LOG_STATUS_INFO003 As String = "INFO003"
-Public Const LOG_STATUS_WORN001 As String = "WORN001"
-Public Const LOG_STATUS_WORN002 As String = "WORN002"
-Public Const LOG_STATUS_WORN003 As String = "WORN003"
-Public Const LOG_STATUS_WORN004 As String = "WORN004"
+Public Const LOG_STATUS_WARN001 As String = "WARN001"
+Public Const LOG_STATUS_WARN002 As String = "WARN002"
+Public Const LOG_STATUS_WARN003 As String = "WARN003"
+Public Const LOG_STATUS_WARN004 As String = "WARN004"
 Public Const LOG_STATUS_ERROR001 As String = "ERROR001"
+Public Const LOG_STATUS_SUM001 As String = "SUM001"
+Public Const LOG_STATUS_SUM002 As String = "SUM002"
+Public Const LOG_STATUS_SUM003 As String = "SUM003"
+Public Const LOG_STATUS_SUM004 As String = "SUM004"
+Public Const LOG_STATUS_SUM005 As String = "SUM005"
+Public Const LOG_STATUS_SUM006 As String = "SUM006"
+Public Const LOG_STATUS_SUM007 As String = "SUM007"
+Public Const LOG_STATUS_SUM008 As String = "SUM008"
+Public Const LOG_STATUS_SUM009 As String = "SUM009"
+Public Const LOG_STATUS_SUM010 As String = "SUM010"
 
 Public Const LOG_MATCH_TYPE_NONE As String = ""
 Public Const LOG_MATCH_TYPE_EMPLOYEE_NO As String = "EmployeeNo"
@@ -282,6 +295,9 @@ Public Const LOG_HEADER_EMPLOYEE_NO As String = "EmployeeNo"
 Public Const LOG_HEADER_NAME As String = "Name"
 Public Const LOG_HEADER_MESSAGE As String = "Message"
 Public Const LOG_HEADER_PATH As String = "Path"
+Public Const LOG_COLOR_INFO As Long = 9109504 ' RGB(0, 0, 139): 濃い青
+Public Const LOG_COLOR_WARN As Long = 26316 ' RGB(204, 102, 0): 濃いオレンジ
+Public Const LOG_COLOR_ERROR As Long = 255 ' RGB(255, 0, 0): 赤
 
 Public Const MBO_UPPER_HEADER_SELF_RANK As String = "自己評価ランク"
 Public Const MBO_UPPER_HEADER_BOSS_RANK As String = "上司評価ランク"
@@ -598,11 +614,11 @@ NextDataRow:
                         AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_INFO001, LOG_MATCH_TYPE_NONE, NormalizeEmployeeNo(valueEmployeeNo), valueEmployeeName, LOG_MSG_ROW_OUTPUT_PREFIX & CStr(rowFileStart) & "-" & CStr(rowFileEnd) & LOG_MSG_ROW_OUTPUT_SUFFIX
                     Else
                         countNoDataRows = countNoDataRows + 1
-                        AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_WORN001, LOG_MATCH_TYPE_NONE, NormalizeEmployeeNo(valueEmployeeNo), valueEmployeeName, LOG_MSG_NODATA_TARGET_ROWS
+                        AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_WARN001, LOG_MATCH_TYPE_NONE, NormalizeEmployeeNo(valueEmployeeNo), valueEmployeeName, LOG_MSG_NODATA_TARGET_ROWS
                     End If
                 Else
                     countSheetMissing = countSheetMissing + 1
-                    AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_WORN002, LOG_MATCH_TYPE_NONE, "", "", MBO_SOURCE_SHEET_NAME & LOG_MSG_SHEET_MISSING_SUFFIX
+                    AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_WARN002, LOG_MATCH_TYPE_NONE, "", "", MBO_SOURCE_SHEET_NAME & LOG_MSG_SHEET_MISSING_SUFFIX
                 End If
 
 NextMainFile:
@@ -613,7 +629,7 @@ NextMainFile:
                 Set worksheetSource = Nothing
                 Set worksheetCriteria = Nothing
             Else
-                AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_WORN003, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SKIP_NON_TARGET
+                AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_WARN003, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SKIP_NON_TARGET
             End If
         Next fileMbo
 
@@ -632,6 +648,7 @@ NextMainFile:
         
         '--- 全体範囲
         Set rangeAll = .Range(.Cells(1, MboColEmployeeNo), .Cells(lastRow, MboColGoalScore))
+        rangeAll.VerticalAlignment = xlCenter
         
         '--- フィルタ設定
         rangeAll.AutoFilter
@@ -677,18 +694,20 @@ NextMainFile:
         For i = LBound(leftCols) To UBound(leftCols)
             .Columns(leftCols(i)).HorizontalAlignment = xlLeft
         Next i
+
+        ApplyLightGrayBorders rangeAll
         
     End With
 
-        AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FOLDERS_SCANNED & CStr(countFoldersScanned)
-        AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FOLDERS_TARGET & CStr(countFoldersTarget)
-        AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FILES_SCANNED & CStr(countFilesScanned)
-        AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FILES_TARGET & CStr(countFilesTarget)
-        AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FILES_OPENED & CStr(countFilesOpened)
-        AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_ROWS_OUTPUT & CStr(countRowsOutput)
-        AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_NODATA & CStr(countNoDataRows)
-        AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_SHEET_MISSING & CStr(countSheetMissing)
-        AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_OPEN_ERROR & CStr(countOpenError)
+                    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM001, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FOLDERS_SCANNED & CStr(countFoldersScanned)
+                    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FOLDERS_TARGET & CStr(countFoldersTarget)
+                    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM003, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FILES_SCANNED & CStr(countFilesScanned)
+                    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM004, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FILES_TARGET & CStr(countFilesTarget)
+                    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM005, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FILES_OPENED & CStr(countFilesOpened)
+                    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM006, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_ROWS_OUTPUT & CStr(countRowsOutput)
+                    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM007, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_NODATA & CStr(countNoDataRows)
+                    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM008, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_SHEET_MISSING & CStr(countSheetMissing)
+                    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM009, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_OPEN_ERROR & CStr(countOpenError)
 
         worksheetLog.Columns("A:I").EntireColumn.AutoFit
     
@@ -870,9 +889,10 @@ Private Function IsTargetRowEmpty(ByVal worksheetSource As Worksheet, _
 End Function
 
 '==========================
-' 上期評価一覧作成
+' 上期／下期評価一覧作成
+' isUpperHalf=True: 上期、False: 下期
 '==========================
-Public Sub CreateMboUpperHalfList()
+Public Sub CreateMboUpperHalfList(Optional ByVal isUpperHalf As Boolean = True)
 
     Dim workbookTarget As Workbook
     Dim worksheetSummary As Worksheet
@@ -884,9 +904,14 @@ Public Sub CreateMboUpperHalfList()
 
     Dim workbookSource As Workbook
     Dim worksheetSource As Worksheet
+    Dim worksheetEval As Worksheet
 
     Dim pathMbo As String
     Dim sheetNameNew As String
+    Dim sourceSheetName As String
+    Dim folderName As String
+    Dim sheetPrefix As String
+    Dim periodLabel As String
 
     Dim rowSummary As Long
     Dim rowData As Long
@@ -896,6 +921,9 @@ Public Sub CreateMboUpperHalfList()
     Dim fileIndex As Long
     Dim lastRow As Long
     Dim lastCol As Long
+    Dim nameSourceCol As Long
+    Dim previousEvaluationFirstCol As Long
+    Dim colIndex As Long
     Dim rangeAll As Range
     Dim defaultRowHeight As Double
     Dim valueEmployeeNo As String
@@ -917,18 +945,30 @@ Public Sub CreateMboUpperHalfList()
     Set workbookTarget = ThisWorkbook
     Set worksheetCaller = GetCallerWorksheet()
 
+    If isUpperHalf Then
+        folderName = MBO_UPPER_FOLDER_NAME
+        sourceSheetName = MBO_UPPER_SOURCE_SHEET_NAME
+        sheetPrefix = MBO_UPPER_SHEET_PREFIX
+        periodLabel = MBO_UPPER_PERIOD_VALUE
+    Else
+        folderName = MBO_LOWER_FOLDER_NAME
+        sourceSheetName = MBO_LOWER_SOURCE_SHEET_NAME
+        sheetPrefix = MBO_LOWER_SHEET_PREFIX
+        periodLabel = MBO_LOWER_PERIOD_VALUE
+    End If
+
     If workbookTarget.Path = vbNullString Then
         MsgBox MSG_SAVE_REQUIRED, vbExclamation
         Exit Sub
     End If
 
-    pathMbo = workbookTarget.Path & Application.PathSeparator & MBO_ROOT_FOLDER_NAME & Application.PathSeparator & MBO_UPPER_FOLDER_NAME
+    pathMbo = workbookTarget.Path & Application.PathSeparator & MBO_ROOT_FOLDER_NAME & Application.PathSeparator & folderName
     If Dir$(pathMbo, vbDirectory) = vbNullString Then
         MsgBox MSG_FOLDER_MBO_NOT_FOUND & vbCrLf & pathMbo, vbExclamation
         Exit Sub
     End If
 
-    sheetNameNew = MBO_UPPER_SHEET_PREFIX & Format(Now, "yyyymmdd_hhnnss")
+    sheetNameNew = sheetPrefix & Format(Now, "yyyymmdd_hhnnss")
     Set worksheetSummary = workbookTarget.Worksheets.Add(After:=workbookTarget.Worksheets(workbookTarget.Worksheets.Count))
     On Error Resume Next
     worksheetSummary.Name = sheetNameNew
@@ -959,6 +999,7 @@ Public Sub CreateMboUpperHalfList()
 
                 Set workbookSource = Nothing
                 Set worksheetSource = Nothing
+                Set worksheetEval = Nothing
 
                 On Error Resume Next
                 Set workbookSource = OpenWorkbookReadOnlyNoUpdate(fileMbo.Path)
@@ -973,22 +1014,30 @@ Public Sub CreateMboUpperHalfList()
                 countFilesOpened = countFilesOpened + 1
 
                 On Error Resume Next
-                Set worksheetSource = workbookSource.Worksheets(MBO_UPPER_SOURCE_SHEET_NAME)
+                Set worksheetSource = workbookSource.Worksheets(sourceSheetName)
+                If Not isUpperHalf Then
+                    Set worksheetEval = workbookSource.Worksheets(MBO_TARGET_SHEET_NAME)
+                End If
                 On Error GoTo 0
 
                 If Not worksheetSource Is Nothing Then
                     If Not hasHeader Then
-                        lastCol = SetUpperHalfSummaryHeader(worksheetSummary, worksheetSource)
+                        lastCol = SetUpperHalfSummaryHeader(worksheetSummary, worksheetSource, Not isUpperHalf)
+                        If Not isUpperHalf Then previousEvaluationFirstCol = lastCol - 5
                         hasHeader = True
                     End If
 
                     valueEmployeeNo = NormalizeEmployeeNo(worksheetSource.Cells(MBO_UPPER_HEADER_VALUE_ROW, 2).value)
-                    valueEmployeeName = NormalizeName(CStr(worksheetSource.Cells(MBO_UPPER_HEADER_VALUE_ROW, 5).value))
+                    nameSourceCol = GetUpperSourceColumnByHeader(worksheetSource, "氏名")
+                    valueEmployeeName = vbNullString
+                    If nameSourceCol > 0 Then
+                        valueEmployeeName = NormalizeName(CStr(worksheetSource.Cells(MBO_UPPER_HEADER_VALUE_ROW, nameSourceCol).value))
+                    End If
 
                     rowFileStart = rowSummary
 
                     For rowData = MBO_UPPER_DETAIL_FIRST_ROW To MBO_UPPER_DETAIL_LAST_ROW
-                        If IsUpperHalfPeriodRow(worksheetSource, rowData) Then
+                        If IsHalfPeriodRow(worksheetSource, rowData, periodLabel) Then
                             WriteUpperHalfSummaryRow worksheetSummary, rowSummary, worksheetSource, rowData
                             rowSummary = rowSummary + 1
                         End If
@@ -999,6 +1048,15 @@ Public Sub CreateMboUpperHalfList()
                     If rowFileEnd >= rowFileStart Then
                         fileIndex = fileIndex + 1
                         countRowsOutput = countRowsOutput + (rowFileEnd - rowFileStart + 1)
+
+                        If Not isUpperHalf Then
+                            If Not worksheetEval Is Nothing Then
+                                WritePreviousEvaluationValues worksheetSummary, rowFileStart, worksheetEval, previousEvaluationFirstCol
+                            Else
+                                countSheetMissing = countSheetMissing + 1
+                                AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_WARN002, LOG_MATCH_TYPE_NONE, valueEmployeeNo, valueEmployeeName, MBO_TARGET_SHEET_NAME & LOG_MSG_SHEET_MISSING_SUFFIX
+                            End If
+                        End If
 
                         Dim rangeBlock As Range
                         Set rangeBlock = worksheetSummary.Range( _
@@ -1016,11 +1074,11 @@ Public Sub CreateMboUpperHalfList()
                         AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_INFO001, LOG_MATCH_TYPE_NONE, valueEmployeeNo, valueEmployeeName, LOG_MSG_ROW_OUTPUT_PREFIX & CStr(rowFileStart) & "-" & CStr(rowFileEnd) & LOG_MSG_ROW_OUTPUT_SUFFIX
                     Else
                         countNoDataRows = countNoDataRows + 1
-                        AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_WORN001, LOG_MATCH_TYPE_NONE, valueEmployeeNo, valueEmployeeName, LOG_MSG_NODATA_UPPER
+                        AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_WARN001, LOG_MATCH_TYPE_NONE, valueEmployeeNo, valueEmployeeName, periodLabel & "データがありません"
                     End If
                 Else
                     countSheetMissing = countSheetMissing + 1
-                    AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_WORN002, LOG_MATCH_TYPE_NONE, "", "", MBO_UPPER_SOURCE_SHEET_NAME & LOG_MSG_SHEET_MISSING_SUFFIX
+                    AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_WARN002, LOG_MATCH_TYPE_NONE, "", "", sourceSheetName & LOG_MSG_SHEET_MISSING_SUFFIX
                 End If
 
 NextUpperMainFile:
@@ -1030,7 +1088,7 @@ NextUpperMainFile:
                 Set workbookSource = Nothing
                 Set worksheetSource = Nothing
             Else
-                AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_WORN003, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SKIP_NON_TARGET
+                AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_WARN003, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SKIP_NON_TARGET
             End If
         Next fileMbo
 
@@ -1045,6 +1103,7 @@ NextUpperMainFile:
 
         With worksheetSummary
             Set rangeAll = .Range(.Cells(1, 1), .Cells(lastRow, lastCol))
+            rangeAll.VerticalAlignment = xlCenter
             rangeAll.AutoFilter
             rangeAll.EntireColumn.AutoFit
 
@@ -1052,26 +1111,39 @@ NextUpperMainFile:
             .Rows("1:" & lastRow).RowHeight = defaultRowHeight
 
             .Range(.Cells(2, 1), .Cells(lastRow, lastCol)).HorizontalAlignment = xlLeft
+            ApplyLightGrayBorders rangeAll
         End With
 
         ApplyUpperHalfNarrowColumnWidths worksheetSummary, lastCol
 
+        If Not isUpperHalf Then
+            With worksheetSummary.Range( _
+                    worksheetSummary.Cells(1, previousEvaluationFirstCol), _
+                    worksheetSummary.Cells(lastRow, lastCol))
+                .HorizontalAlignment = xlCenter
+                .VerticalAlignment = xlCenter
+            End With
+            For colIndex = previousEvaluationFirstCol To lastCol
+                worksheetSummary.Columns(colIndex).ColumnWidth = 5
+            Next colIndex
+        End If
+
         ApplyUpperHalfConditionalFormats worksheetSummary, lastRow, lastCol
     End If
 
-    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FOLDERS_SCANNED & CStr(countFoldersScanned)
-    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FOLDERS_TARGET & CStr(countFoldersTarget)
-    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FILES_SCANNED & CStr(countFilesScanned)
-    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FILES_TARGET & CStr(countFilesTarget)
-    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FILES_OPENED & CStr(countFilesOpened)
-    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_ROWS_OUTPUT & CStr(countRowsOutput)
-    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_NODATA & CStr(countNoDataRows)
-    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_SHEET_MISSING & CStr(countSheetMissing)
-    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_OPEN_ERROR & CStr(countOpenError)
+    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM001, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FOLDERS_SCANNED & CStr(countFoldersScanned)
+    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FOLDERS_TARGET & CStr(countFoldersTarget)
+    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM003, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FILES_SCANNED & CStr(countFilesScanned)
+    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM004, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FILES_TARGET & CStr(countFilesTarget)
+    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM005, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FILES_OPENED & CStr(countFilesOpened)
+    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM006, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_ROWS_OUTPUT & CStr(countRowsOutput)
+    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM007, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_NODATA & CStr(countNoDataRows)
+    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM008, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_SHEET_MISSING & CStr(countSheetMissing)
+    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM009, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_OPEN_ERROR & CStr(countOpenError)
 
     worksheetLog.Columns("A:I").EntireColumn.AutoFit
 
-        MsgBox MSG_DONE_CREATE_UPPER_LIST & vbCrLf & _
+        MsgBox periodLabel & "一覧作成が完了しました。" & vbCrLf & _
             MSG_LABEL_SHEET_NAME & worksheetSummary.Name & vbCrLf & _
             MSG_LABEL_LOG_SHEET & worksheetLog.Name & vbCrLf & _
             LOG_MSG_SUM_FOLDERS_SCANNED & countFoldersScanned & vbCrLf & _
@@ -1081,7 +1153,9 @@ NextUpperMainFile:
 
 End Sub
 
-Private Function SetUpperHalfSummaryHeader(ByVal worksheetSummary As Worksheet, ByVal worksheetSource As Worksheet) As Long
+Private Function SetUpperHalfSummaryHeader(ByVal worksheetSummary As Worksheet, _
+                                           ByVal worksheetSource As Worksheet, _
+                                           ByVal includePreviousEvaluation As Boolean) As Long
 
     Dim outCol As Long
     Dim srcCol As Variant
@@ -1138,6 +1212,16 @@ Private Function SetUpperHalfSummaryHeader(ByVal worksheetSummary As Worksheet, 
             outCol = outCol + 1
         End If
     Next
+
+    If includePreviousEvaluation Then
+        worksheetSummary.Cells(1, outCol).value = MBO_HEADER_PREV_MBO_RANK
+        worksheetSummary.Cells(1, outCol + 1).value = MBO_HEADER_PREV_MBO_POINT
+        worksheetSummary.Cells(1, outCol + 2).value = MBO_HEADER_PREV_CM_RANK
+        worksheetSummary.Cells(1, outCol + 3).value = MBO_HEADER_PREV_CM_POINT
+        worksheetSummary.Cells(1, outCol + 4).value = MBO_HEADER_PREV_TOTAL_RANK
+        worksheetSummary.Cells(1, outCol + 5).value = MBO_HEADER_PREV_TOTAL_POINT
+        outCol = outCol + 6
+    End If
 
     SetUpperHalfSummaryHeader = outCol - 1
 
@@ -1229,6 +1313,47 @@ Private Function GetUpperTopSourceColumns() As Variant
     GetUpperTopSourceColumns = Array(2, 4, 5, 6, 9, 11, 13)
 End Function
 
+Private Sub WritePreviousEvaluationValues(ByVal worksheetSummary As Worksheet, _
+                                          ByVal targetRow As Long, _
+                                          ByVal worksheetEval As Worksheet, _
+                                          ByVal firstOutputCol As Long)
+
+    worksheetSummary.Cells(targetRow, firstOutputCol).value = worksheetEval.Cells(MboPrevSrcMboRow, MboPrevSrcRankCol).value
+    worksheetSummary.Cells(targetRow, firstOutputCol + 1).value = worksheetEval.Cells(MboPrevSrcMboRow, MboPrevSrcPointCol).value
+    worksheetSummary.Cells(targetRow, firstOutputCol + 2).value = worksheetEval.Cells(MboPrevSrcCmRow, MboPrevSrcRankCol).value
+    worksheetSummary.Cells(targetRow, firstOutputCol + 3).value = worksheetEval.Cells(MboPrevSrcCmRow, MboPrevSrcPointCol).value
+    worksheetSummary.Cells(targetRow, firstOutputCol + 4).value = worksheetEval.Cells(MboPrevSrcTotalRow, MboPrevSrcRankCol).value
+    worksheetSummary.Cells(targetRow, firstOutputCol + 5).value = worksheetEval.Cells(MboPrevSrcTotalRow, MboPrevSrcPointCol).value
+
+End Sub
+
+Private Function GetUpperSourceColumnByHeader(ByVal worksheetSource As Worksheet, _
+                                               ByVal headerKeyword As String) As Long
+
+    Dim sourceCol As Variant
+    Dim topCols As Variant
+
+    topCols = GetUpperTopSourceColumns()
+    For Each sourceCol In topCols
+        If InStr(1, GetUpperHeaderText(worksheetSource, MBO_UPPER_HEADER_ROW, CLng(sourceCol)), _
+                 headerKeyword, vbTextCompare) > 0 Then
+            GetUpperSourceColumnByHeader = CLng(sourceCol)
+            Exit Function
+        End If
+    Next sourceCol
+
+End Function
+
+Private Sub ApplyLightGrayBorders(ByVal targetRange As Range)
+
+    With targetRange.Borders
+        .LineStyle = xlContinuous
+        .Color = RGB(217, 217, 217)
+        .Weight = xlThin
+    End With
+
+End Sub
+
 Private Function GetUpperDetailSourceColumns() As Variant
     GetUpperDetailSourceColumns = Array(3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14)
 End Function
@@ -1237,12 +1362,14 @@ Private Function GetUpperScoreSourceColumns() As Variant
     GetUpperScoreSourceColumns = Array(16, 20, 21, 22, 25, 26)
 End Function
 
-Private Function IsUpperHalfPeriodRow(ByVal worksheetSource As Worksheet, ByVal rowData As Long) As Boolean
+Private Function IsHalfPeriodRow(ByVal worksheetSource As Worksheet, _
+                                 ByVal rowData As Long, _
+                                 ByVal periodLabel As String) As Boolean
 
     Dim valuePeriod As String
 
     valuePeriod = Trim$(CStr(worksheetSource.Cells(rowData, MBO_UPPER_PERIOD_COL).value))
-    IsUpperHalfPeriodRow = (StrComp(valuePeriod, MBO_UPPER_PERIOD_VALUE, vbTextCompare) = 0)
+    IsHalfPeriodRow = (StrComp(valuePeriod, periodLabel, vbTextCompare) = 0)
 
 End Function
 
@@ -1341,6 +1468,16 @@ Private Sub MergeUpperRepeatedSummaryCells(ByVal worksheetSummary As Worksheet, 
 End Sub
 
 Private Function ShouldMergeUpperSummaryColumn(ByVal headerText As String) As Boolean
+
+    If headerText = MBO_HEADER_PREV_MBO_RANK Or _
+       headerText = MBO_HEADER_PREV_MBO_POINT Or _
+       headerText = MBO_HEADER_PREV_CM_RANK Or _
+       headerText = MBO_HEADER_PREV_CM_POINT Or _
+       headerText = MBO_HEADER_PREV_TOTAL_RANK Or _
+       headerText = MBO_HEADER_PREV_TOTAL_POINT Then
+        ShouldMergeUpperSummaryColumn = True
+        Exit Function
+    End If
 
     If headerText = MBO_UPPER_HEADER_SELF_TOTAL Then
         ShouldMergeUpperSummaryColumn = True
@@ -1766,7 +1903,7 @@ Public Sub UpdatePrevTermEvaluation(ByVal worksheetSummary As Worksheet)
                             countMatchByName = countMatchByName + 1
                         Else
                             countNoMatch = countNoMatch + 1
-                            AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_WORN004, LOG_MATCH_TYPE_NONE, keyEmployeeNo, keyName, LOG_MSG_NO_MATCH_EMP_NO_NAME
+                            AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_WARN004, LOG_MATCH_TYPE_NONE, keyEmployeeNo, keyName, LOG_MSG_NO_MATCH_EMP_NO_NAME
                             GoTo NextPrevFile
                         End If
                     End If
@@ -1811,7 +1948,7 @@ Public Sub UpdatePrevTermEvaluation(ByVal worksheetSummary As Worksheet)
                     End If
                 Else
                     countSheetMissing = countSheetMissing + 1
-                    AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_WORN002, LOG_MATCH_TYPE_NONE, "", "", MBO_TARGET_SHEET_NAME & LOG_MSG_SHEET_MISSING_SUFFIX
+                    AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_WARN002, LOG_MATCH_TYPE_NONE, "", "", MBO_TARGET_SHEET_NAME & LOG_MSG_SHEET_MISSING_SUFFIX
                 End If
 
 NextPrevFile:
@@ -1822,7 +1959,7 @@ NextPrevFile:
                 Set worksheetSource = Nothing
                 Set workbookSource = Nothing
             Else
-                AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_WORN003, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SKIP_NON_TARGET
+                AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_WARN003, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SKIP_NON_TARGET
             End If
         Next fileMbo
 
@@ -1843,7 +1980,10 @@ NextPrevFile:
         Next colIndex
     
         'Z～AE は中央寄せ
-        .Range(.Cells(1, outFirstCol), .Cells(lastRow, outLastCol)).HorizontalAlignment = xlCenter
+        With .Range(.Cells(1, outFirstCol), .Cells(lastRow, outLastCol))
+            .HorizontalAlignment = xlCenter
+            .VerticalAlignment = xlCenter
+        End With
     
         'Z～AE 以外は AutoFit
         .Range(.Cells(1, MboColEmployeeNo), .Cells(lastRow, outFirstCol - 1)).EntireColumn.AutoFit
@@ -1864,21 +2004,23 @@ NextPrevFile:
                 worksheetSummary.Cells(rowIndex, outLastCol) _
             ).Interior.Color = stripeColor
         Next rowIndex
+
+        ApplyLightGrayBorders .Range(.Cells(1, outFirstCol), .Cells(lastRow, outLastCol))
     
     End With
 
     ApplyRankFormatByHeader worksheetSummary, lastRow, outFirstCol, outLastCol
 
-    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FOLDERS_SCANNED & CStr(countFoldersScanned)
-    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FOLDERS_TARGET & CStr(countFoldersTarget)
-    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FILES_SCANNED & CStr(countFilesScanned)
-    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FILES_TARGET & CStr(countFilesTarget)
-    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FILES_OPENED & CStr(countFilesOpened)
-    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_MATCH_EMP_NO & CStr(countMatchByEmployeeNo)
-    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_MATCH_NAME & CStr(countMatchByName)
-    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_NO_MATCH & CStr(countNoMatch)
-    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_EVAL_SHEET_MISSING & CStr(countSheetMissing)
-    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_INFO002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_OPEN_ERROR & CStr(countOpenError)
+    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM001, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FOLDERS_SCANNED & CStr(countFoldersScanned)
+    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM002, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FOLDERS_TARGET & CStr(countFoldersTarget)
+    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM003, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FILES_SCANNED & CStr(countFilesScanned)
+    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM004, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FILES_TARGET & CStr(countFilesTarget)
+    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM005, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FILES_OPENED & CStr(countFilesOpened)
+    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM006, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_MATCH_EMP_NO & CStr(countMatchByEmployeeNo)
+    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM007, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_MATCH_NAME & CStr(countMatchByName)
+    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM008, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_NO_MATCH & CStr(countNoMatch)
+    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM009, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_EVAL_SHEET_MISSING & CStr(countSheetMissing)
+    AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM010, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_OPEN_ERROR & CStr(countOpenError)
 
     worksheetLog.Columns("A:I").EntireColumn.AutoFit
 
@@ -1990,6 +2132,9 @@ Private Function GetLogSheetNameFromSummaryName(ByVal summarySheetName As String
     ElseIf Left$(summarySheetName, Len(MBO_UPPER_SHEET_PREFIX)) = MBO_UPPER_SHEET_PREFIX Then
         suffix = Mid$(summarySheetName, Len(MBO_UPPER_SHEET_PREFIX) + 1)
         baseName = "LOG_" & suffix
+    ElseIf Left$(summarySheetName, Len(MBO_LOWER_SHEET_PREFIX)) = MBO_LOWER_SHEET_PREFIX Then
+        suffix = Mid$(summarySheetName, Len(MBO_LOWER_SHEET_PREFIX) + 1)
+        baseName = "LOG_" & suffix
     Else
         baseName = "LOG_" & Format(Now, "yyyymmdd_hhnnss")
     End If
@@ -2051,6 +2196,16 @@ Private Sub AppendLogRow(ByVal worksheetLog As Worksheet, _
         .Cells(rowLog, 2).value = folderName
         .Cells(rowLog, 3).value = fileName
         .Cells(rowLog, 4).value = status
+        Select Case True
+            Case Left$(status, 4) = "INFO"
+                .Range(.Cells(rowLog, 1), .Cells(rowLog, 9)).Font.Color = LOG_COLOR_INFO
+            Case Left$(status, 4) = "WARN"
+                .Range(.Cells(rowLog, 1), .Cells(rowLog, 9)).Font.Color = LOG_COLOR_WARN
+            Case Left$(status, 5) = "ERROR"
+                .Range(.Cells(rowLog, 1), .Cells(rowLog, 9)).Font.Color = LOG_COLOR_ERROR
+            Case Left$(status, 3) = "SUM"
+                .Range(.Cells(rowLog, 1), .Cells(rowLog, 9)).Font.Color = vbBlack
+        End Select
         .Cells(rowLog, 5).value = matchType
         .Cells(rowLog, 6).value = employeeNo
         .Cells(rowLog, 7).value = employeeName
