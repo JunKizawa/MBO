@@ -66,6 +66,14 @@ Public Const MBO_HEADER_SERVICE_YEARS As String = "勤続年数"
 Public Const MBO_HEADER_TITLE As String = "役職"
 Public Const MBO_HEADER_GRADE As String = "等級"
 Public Const MBO_HEADER_CAREER As String = "目指すキャリア"
+Public Const MBO_BONUS_HEADER_EMPLOYEE_NO As String = "社員№"
+Public Const MBO_BONUS_HEADER_EMPLOYEE_NAME As String = "氏名"
+Public Const MBO_BONUS_HEADER_GRADE As String = "等級"
+Public Const MBO_BONUS_HEADER_BOSS_TOTAL As String = "上司評価合計"
+Public Const MBO_BONUS_HEADER_BOSS_RANK As String = "上司評価ランク"
+Public Const MBO_BONUS_HEADER_SERVICE_YEARS As String = "勤続年数"
+Public Const MBO_BONUS_HEADER_TITLE As String = "役職"
+Public Const MBO_BONUS_HEADER_CAREER As String = "目指すキャリア"
 Public Const MBO_HEADER_COMMITTEE As String = "所属委員会"
 Public Const MBO_HEADER_KBN As String = "区分"
 Public Const MBO_HEADER_PORTABLE_SKILL As String = "ポータブルスキル"
@@ -191,6 +199,7 @@ Public Const MBO_UPPER_SOURCE_SHEET_NAME As String = "目標管理シート(上�
 Public Const MBO_UPPER_SHEET_PREFIX As String = "MBO上期評価一覧_"
 Public Const MBO_LOWER_SOURCE_SHEET_NAME As String = "目標管理シート(下期)"
 Public Const MBO_LOWER_SHEET_PREFIX As String = "MBO下期評価一覧_"
+Public Const MBO_BONUS_SHEET_PREFIX As String = "賞与用評価一覧_"
 Public Const MBO_UPPER_HEADER_ROW As Long = 6
 Public Const MBO_UPPER_HEADER_VALUE_ROW As Long = 7
 Public Const MBO_UPPER_CAREER_ROW As Long = 9
@@ -221,8 +230,8 @@ Public Const SHEET_TAB_COLOR_LOG As Long = 15132390 'RGB(230,230,230)
 Public Const MERGED_FONT_SIZE_DELTA As Double = 2
 
 '=====================================================================
-' 【9. 共通MsgBox関連定数】
-' 説明: モジュール全体で使用される共通メッセージボックス文字列の定数。
+' 【9. 共通メッセージ定数】
+' 説明: 利用者向けメッセージや案内文で使用する定数。
 '=====================================================================
 
 Public Const MSG_SAVE_REQUIRED As String = "このブックを一度保存してから実行してください。"
@@ -236,6 +245,8 @@ Public Const MSG_DONE_UPDATE_PREV As String = "前期MBO の追記が完了し�
 
 Public Const MSG_LABEL_SHEET_NAME As String = "シート名: "
 Public Const MSG_LABEL_LOG_SHEET As String = "ログシート: "
+Public Const MSG_LABEL_BONUS_SHEET_NAME As String = "賞与用評価一覧シート: "
+Public Const MSG_BONUS_OUT_OF_SCOPE_NOTE As String = "新たに入社した方など、MBO対象外のメンバーは本一覧に表示されません。必要に応じて個別に追記してください。"
 
 '=====================================================================
 ' 【10. 共通LOG関連定数】
@@ -272,6 +283,7 @@ Public Const LOG_MSG_ROW_OUTPUT_SUFFIX As String = " に出力"
 Public Const LOG_MSG_ROW_REFLECT_SUFFIX As String = " に反映"
 Public Const LOG_MSG_NODATA_TARGET_ROWS As String = "対象行に出力データなし"
 Public Const LOG_MSG_NODATA_UPPER As String = "上期データがありません"
+Public Const LOG_MSG_NODATA_PERIOD_SUFFIX As String = "データがありません"
 Public Const LOG_MSG_SKIP_NON_TARGET As String = "対象ファイル条件に不一致"
 Public Const LOG_MSG_SHEET_MISSING_SUFFIX As String = " シートが見つかりません"
 Public Const LOG_MSG_OPEN_ERROR_PREFIX As String = "ブックを開けませんでした: "
@@ -902,6 +914,7 @@ Public Sub CreateMboUpperHalfList(Optional ByVal isUpperHalf As Boolean = True)
 
     Dim workbookTarget As Workbook
     Dim worksheetSummary As Worksheet
+    Dim worksheetBonus As Worksheet
     Dim worksheetLog As Worksheet
     Dim fileSystem As Object
     Dim folderRoot As Object
@@ -914,18 +927,22 @@ Public Sub CreateMboUpperHalfList(Optional ByVal isUpperHalf As Boolean = True)
 
     Dim pathMbo As String
     Dim sheetNameNew As String
+    Dim bonusSheetName As String
+    Dim sheetNameSuffix As String
     Dim sourceSheetName As String
     Dim folderName As String
     Dim sheetPrefix As String
     Dim periodLabel As String
 
     Dim rowSummary As Long
+    Dim rowBonus As Long
     Dim rowData As Long
     Dim rowLog As Long
     Dim rowFileStart As Long
     Dim rowFileEnd As Long
     Dim fileIndex As Long
     Dim lastRow As Long
+    Dim lastBonusRow As Long
     Dim lastCol As Long
     Dim nameSourceCol As Long
     Dim previousEvaluationFirstCol As Long
@@ -974,13 +991,23 @@ Public Sub CreateMboUpperHalfList(Optional ByVal isUpperHalf As Boolean = True)
         Exit Sub
     End If
 
-    sheetNameNew = sheetPrefix & Format(Now, "yyyymmdd_hhnnss")
+    sheetNameSuffix = GetNextEvaluationSheetSuffix(workbookTarget, Date)
+    sheetNameNew = sheetPrefix & sheetNameSuffix
+    bonusSheetName = MBO_BONUS_SHEET_PREFIX & sheetNameSuffix
     Set worksheetSummary = workbookTarget.Worksheets.Add(After:=workbookTarget.Worksheets(workbookTarget.Worksheets.Count))
     On Error Resume Next
     worksheetSummary.Name = sheetNameNew
     On Error GoTo 0
 
+    Set worksheetBonus = PrepareBonusEvaluationSheet(workbookTarget, bonusSheetName)
+    If Not worksheetCaller Is Nothing Then
+        On Error Resume Next
+        worksheetBonus.Tab.Color = worksheetCaller.Tab.Color
+        On Error GoTo 0
+    End If
+
     rowSummary = 2
+    rowBonus = 2
     hasHeader = False
     lastCol = 1
 
@@ -1034,7 +1061,7 @@ Public Sub CreateMboUpperHalfList(Optional ByVal isUpperHalf As Boolean = True)
                     End If
 
                     valueEmployeeNo = NormalizeEmployeeNo(worksheetSource.Cells(MBO_UPPER_HEADER_VALUE_ROW, 2).value)
-                    nameSourceCol = GetUpperSourceColumnByHeader(worksheetSource, "氏名")
+                    nameSourceCol = GetUpperSourceColumnByHeader(worksheetSource, MBO_HEADER_EMPLOYEE_NAME)
                     valueEmployeeName = vbNullString
                     If nameSourceCol > 0 Then
                         valueEmployeeName = NormalizeName(CStr(worksheetSource.Cells(MBO_UPPER_HEADER_VALUE_ROW, nameSourceCol).value))
@@ -1054,6 +1081,8 @@ Public Sub CreateMboUpperHalfList(Optional ByVal isUpperHalf As Boolean = True)
                     If rowFileEnd >= rowFileStart Then
                         fileIndex = fileIndex + 1
                         countRowsOutput = countRowsOutput + (rowFileEnd - rowFileStart + 1)
+                        WriteBonusEvaluationRow worksheetBonus, rowBonus, worksheetSource
+                        rowBonus = rowBonus + 1
 
                         If Not isUpperHalf Then
                             If Not worksheetEval Is Nothing Then
@@ -1084,7 +1113,7 @@ Public Sub CreateMboUpperHalfList(Optional ByVal isUpperHalf As Boolean = True)
                         AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_INFO001, LOG_MATCH_TYPE_NONE, valueEmployeeNo, valueEmployeeName, LOG_MSG_ROW_OUTPUT_PREFIX & CStr(rowFileStart) & "-" & CStr(rowFileEnd) & LOG_MSG_ROW_OUTPUT_SUFFIX
                     Else
                         countNoDataRows = countNoDataRows + 1
-                        AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_WARN001, LOG_MATCH_TYPE_NONE, valueEmployeeNo, valueEmployeeName, periodLabel & "データがありません"
+                        AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_WARN001, LOG_MATCH_TYPE_NONE, valueEmployeeNo, valueEmployeeName, periodLabel & LOG_MSG_NODATA_PERIOD_SUFFIX
                     End If
                 Else
                     countSheetMissing = countSheetMissing + 1
@@ -1159,13 +1188,77 @@ NextUpperMainFile:
 
     worksheetLog.Columns("A:I").EntireColumn.AutoFit
 
-        MsgBox periodLabel & "一覧作成が完了しました。" & vbCrLf & _
+    lastBonusRow = rowBonus - 1
+    With worksheetBonus
+        Set rangeAll = .Range(.Cells(1, 1), .Cells(lastBonusRow, 8))
+        rangeAll.VerticalAlignment = xlCenter
+        rangeAll.AutoFilter
+        rangeAll.EntireColumn.AutoFit
+        If lastBonusRow >= 2 Then
+            .Range(.Cells(2, 4), .Cells(lastBonusRow, 5)).HorizontalAlignment = xlCenter
+        End If
+        ApplyLightGrayBorders rangeAll
+    End With
+    ApplyRankFormatByColumn worksheetBonus, 5, lastBonusRow
+    worksheetBonus.Cells(lastBonusRow + 1, 1).Value = MSG_BONUS_OUT_OF_SCOPE_NOTE
+
+        MsgBox periodLabel & MSG_DONE_CREATE_LIST & vbCrLf & _
             MSG_LABEL_SHEET_NAME & worksheetSummary.Name & vbCrLf & _
+            MSG_LABEL_BONUS_SHEET_NAME & worksheetBonus.Name & vbCrLf & _
             MSG_LABEL_LOG_SHEET & worksheetLog.Name & vbCrLf & _
             LOG_MSG_SUM_FOLDERS_SCANNED & countFoldersScanned & vbCrLf & _
             LOG_MSG_SUM_FOLDERS_TARGET & countFoldersTarget & vbCrLf & _
             LOG_MSG_SUM_FILES_SCANNED & countFilesScanned & vbCrLf & _
             LOG_MSG_SUM_FILES_TARGET & countFilesTarget, vbInformation
+
+End Sub
+
+Private Function PrepareBonusEvaluationSheet(ByVal workbookTarget As Workbook, _
+                                             ByVal sheetName As String) As Worksheet
+
+    Dim worksheetBonus As Worksheet
+
+    Set worksheetBonus = workbookTarget.Worksheets.Add( _
+        After:=workbookTarget.Worksheets(workbookTarget.Worksheets.Count))
+    worksheetBonus.Name = sheetName
+
+    With worksheetBonus
+        .Cells(1, 1).Value = MBO_BONUS_HEADER_EMPLOYEE_NO
+        .Cells(1, 2).Value = MBO_BONUS_HEADER_EMPLOYEE_NAME
+        .Cells(1, 3).Value = MBO_BONUS_HEADER_GRADE
+        .Cells(1, 4).Value = MBO_BONUS_HEADER_BOSS_TOTAL
+        .Cells(1, 5).Value = MBO_BONUS_HEADER_BOSS_RANK
+        .Cells(1, 6).Value = MBO_BONUS_HEADER_SERVICE_YEARS
+        .Cells(1, 7).Value = MBO_BONUS_HEADER_TITLE
+        .Cells(1, 8).Value = MBO_BONUS_HEADER_CAREER
+
+        With .Range(.Cells(1, 1), .Cells(1, 8))
+            .Interior.Color = RGB(0, 102, 204)
+            .Font.Color = vbWhite
+            .Font.Bold = True
+        End With
+    End With
+
+    Set PrepareBonusEvaluationSheet = worksheetBonus
+
+End Function
+
+Private Sub WriteBonusEvaluationRow(ByVal worksheetBonus As Worksheet, _
+                                    ByVal outputRow As Long, _
+                                    ByVal worksheetSource As Worksheet)
+
+    Dim topCols As Variant
+
+    topCols = GetUpperTopSourceColumns()
+
+    worksheetBonus.Cells(outputRow, 1).Value = worksheetSource.Cells(MBO_UPPER_HEADER_VALUE_ROW, CLng(topCols(0))).Value
+    worksheetBonus.Cells(outputRow, 2).Value = worksheetSource.Cells(MBO_UPPER_HEADER_VALUE_ROW, CLng(topCols(1))).Value
+    worksheetBonus.Cells(outputRow, 3).Value = worksheetSource.Cells(MBO_UPPER_HEADER_VALUE_ROW, CLng(topCols(6))).Value
+    worksheetBonus.Cells(outputRow, 4).Value = worksheetSource.Cells(MBO_UPPER_TOTAL_ROW, MBO_UPPER_TOTAL_COL_Z).Value
+    worksheetBonus.Cells(outputRow, 5).Value = worksheetSource.Cells(MBO_UPPER_TOTAL_ROW, MBO_UPPER_RANK_COL_X).Value
+    worksheetBonus.Cells(outputRow, 6).Value = worksheetSource.Cells(MBO_UPPER_HEADER_VALUE_ROW, CLng(topCols(4))).Value
+    worksheetBonus.Cells(outputRow, 7).Value = worksheetSource.Cells(MBO_UPPER_HEADER_VALUE_ROW, CLng(topCols(5))).Value
+    worksheetBonus.Cells(outputRow, 8).Value = worksheetSource.Cells(MBO_UPPER_CAREER_ROW, MBO_UPPER_CAREER_VALUE_COL).Value
 
 End Sub
 
@@ -1207,7 +1300,7 @@ Private Function SetUpperHalfSummaryHeader(ByVal worksheetSummary As Worksheet, 
     Next
 
         '--- 目標設定シートO列の後ろに「達成基準」シートE列（目標設定(達成基準):A）を追加
-        worksheetSummary.Cells(1, outCol).value = "達成基準"
+        worksheetSummary.Cells(1, outCol).value = MBO_HEADER_CRITERIA
         outCol = outCol + 1
 
     For Each srcCol In scoreCols
@@ -1290,7 +1383,7 @@ Private Sub WriteUpperHalfSummaryRow(ByVal worksheetSummary As Worksheet, _
         Dim wsCriteria As Worksheet
         Dim criteriaValue As Variant
         On Error Resume Next
-        Set wsCriteria = worksheetSource.Parent.Worksheets("達成基準")
+        Set wsCriteria = worksheetSource.Parent.Worksheets(MBO_CRITERIA_SHEET_NAME)
         On Error GoTo 0
         criteriaValue = ""
         If Not wsCriteria Is Nothing Then
@@ -2213,6 +2306,28 @@ Private Function WorksheetExists(ByVal wb As Workbook, ByVal sheetName As String
     WorksheetExists = Not ws Is Nothing
     Set ws = Nothing
     On Error GoTo 0
+
+End Function
+
+Private Function GetNextEvaluationSheetSuffix(ByVal wb As Workbook, ByVal runDate As Date) As String
+
+    Dim datePart As String
+    Dim candidateSuffix As String
+    Dim sequenceNumber As Long
+
+    datePart = Format$(runDate, "yymmdd")
+    candidateSuffix = datePart
+    sequenceNumber = 2
+
+    Do While WorksheetExists(wb, MBO_UPPER_SHEET_PREFIX & candidateSuffix) Or _
+             WorksheetExists(wb, MBO_LOWER_SHEET_PREFIX & candidateSuffix) Or _
+             WorksheetExists(wb, MBO_BONUS_SHEET_PREFIX & candidateSuffix) Or _
+             WorksheetExists(wb, "LOG_" & candidateSuffix)
+        candidateSuffix = datePart & "_" & CStr(sequenceNumber)
+        sequenceNumber = sequenceNumber + 1
+    Loop
+
+    GetNextEvaluationSheetSuffix = candidateSuffix
 
 End Function
 
