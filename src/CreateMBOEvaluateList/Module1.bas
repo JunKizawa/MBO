@@ -124,6 +124,12 @@ Public Const MBO_HEADER_PREV_CM_RANK As String = "前期 評価ランク（CMシ
 Public Const MBO_HEADER_PREV_CM_POINT As String = "前期 合計点（CMシート 最終評価）"
 Public Const MBO_HEADER_PREV_TOTAL_RANK As String = "前期 評価ランク（総合評価 MBO+CM）"
 Public Const MBO_HEADER_PREV_TOTAL_POINT As String = "前期 合計点（総合評価 MBO+CM）"
+Public Const MBO_HEADER_SAME_MBO_RANK As String = "MBOシート 1年間評価"
+Public Const MBO_HEADER_SAME_MBO_POINT As String = "MBOシート 1年間評価"
+Public Const MBO_HEADER_SAME_CM_RANK As String = "CMシート 最終評価"
+Public Const MBO_HEADER_SAME_CM_POINT As String = "CMシート 最終評価"
+Public Const MBO_HEADER_SAME_TOTAL_RANK As String = "総合評価 MBO+CM"
+Public Const MBO_HEADER_SAME_TOTAL_POINT As String = "総合評価 MBO+CM"
 
 '=====================================================================
 ' 【7. データ取得用：元シートの行・列インデックス】
@@ -1071,6 +1077,10 @@ Public Sub CreateMboUpperHalfList(Optional ByVal isUpperHalf As Boolean = True)
 
                         MergeUpperRepeatedSummaryCells worksheetSummary, rowFileStart, rowFileEnd, lastCol
 
+                        If Not isUpperHalf Then
+                            ApplyPreviousEvaluationComparisonFill worksheetSummary, rowFileStart, rowFileEnd, previousEvaluationFirstCol
+                        End If
+
                         AppendLogRow worksheetLog, rowLog, folderPerson.Name, fileMbo.Name, LOG_STATUS_INFO001, LOG_MATCH_TYPE_NONE, valueEmployeeNo, valueEmployeeName, LOG_MSG_ROW_OUTPUT_PREFIX & CStr(rowFileStart) & "-" & CStr(rowFileEnd) & LOG_MSG_ROW_OUTPUT_SUFFIX
                     Else
                         countNoDataRows = countNoDataRows + 1
@@ -1129,6 +1139,12 @@ NextUpperMainFile:
         End If
 
         ApplyUpperHalfConditionalFormats worksheetSummary, lastRow, lastCol
+        If Not isUpperHalf Then
+            '下期の追加6列は見出しに「ランク」を含めないため、ランク列を位置で指定
+            ApplyRankFormatByColumn worksheetSummary, previousEvaluationFirstCol, lastRow
+            ApplyRankFormatByColumn worksheetSummary, previousEvaluationFirstCol + 2, lastRow
+            ApplyRankFormatByColumn worksheetSummary, previousEvaluationFirstCol + 4, lastRow
+        End If
     End If
 
     AppendLogRow worksheetLog, rowLog, LOG_FOLDER_SUMMARY, "", LOG_STATUS_SUM001, LOG_MATCH_TYPE_NONE, "", "", LOG_MSG_SUM_FOLDERS_SCANNED & CStr(countFoldersScanned)
@@ -1214,12 +1230,12 @@ Private Function SetUpperHalfSummaryHeader(ByVal worksheetSummary As Worksheet, 
     Next
 
     If includePreviousEvaluation Then
-        worksheetSummary.Cells(1, outCol).value = MBO_HEADER_PREV_MBO_RANK
-        worksheetSummary.Cells(1, outCol + 1).value = MBO_HEADER_PREV_MBO_POINT
-        worksheetSummary.Cells(1, outCol + 2).value = MBO_HEADER_PREV_CM_RANK
-        worksheetSummary.Cells(1, outCol + 3).value = MBO_HEADER_PREV_CM_POINT
-        worksheetSummary.Cells(1, outCol + 4).value = MBO_HEADER_PREV_TOTAL_RANK
-        worksheetSummary.Cells(1, outCol + 5).value = MBO_HEADER_PREV_TOTAL_POINT
+        worksheetSummary.Cells(1, outCol).value = MBO_HEADER_SAME_MBO_RANK
+        worksheetSummary.Cells(1, outCol + 1).value = MBO_HEADER_SAME_MBO_POINT
+        worksheetSummary.Cells(1, outCol + 2).value = MBO_HEADER_SAME_CM_RANK
+        worksheetSummary.Cells(1, outCol + 3).value = MBO_HEADER_SAME_CM_POINT
+        worksheetSummary.Cells(1, outCol + 4).value = MBO_HEADER_SAME_TOTAL_RANK
+        worksheetSummary.Cells(1, outCol + 5).value = MBO_HEADER_SAME_TOTAL_POINT
         outCol = outCol + 6
     End If
 
@@ -1469,6 +1485,16 @@ End Sub
 
 Private Function ShouldMergeUpperSummaryColumn(ByVal headerText As String) As Boolean
 
+    If headerText = MBO_HEADER_SAME_MBO_RANK Or _
+       headerText = MBO_HEADER_SAME_MBO_POINT Or _
+       headerText = MBO_HEADER_SAME_CM_RANK Or _
+       headerText = MBO_HEADER_SAME_CM_POINT Or _
+       headerText = MBO_HEADER_SAME_TOTAL_RANK Or _
+       headerText = MBO_HEADER_SAME_TOTAL_POINT Then
+        ShouldMergeUpperSummaryColumn = True
+        Exit Function
+    End If
+
     If headerText = MBO_HEADER_PREV_MBO_RANK Or _
        headerText = MBO_HEADER_PREV_MBO_POINT Or _
        headerText = MBO_HEADER_PREV_CM_RANK Or _
@@ -1581,6 +1607,37 @@ Private Sub ApplyRankFormatByHeader(ByVal worksheetSummary As Worksheet, _
             ApplyRankFormatByColumn worksheetSummary, colIndex, lastRow
         End If
     Next colIndex
+
+End Sub
+
+Private Sub ApplyPreviousEvaluationComparisonFill(ByVal worksheetSummary As Worksheet, _
+                                                  ByVal startRow As Long, _
+                                                  ByVal endRow As Long, _
+                                                  ByVal firstCol As Long)
+
+    Dim mboRank As String
+    Dim cmRank As String
+    Dim cmRankRange As Range
+
+    mboRank = UCase$(Trim$(CStr(worksheetSummary.Cells(startRow, firstCol).Value)))
+    cmRank = UCase$(Trim$(CStr(worksheetSummary.Cells(startRow, firstCol + 2).Value)))
+
+    If mboRank <> "C" And mboRank <> "D" And mboRank <> "E" Then Exit Sub
+    If cmRank <> "S" And cmRank <> "SS" Then Exit Sub
+
+    Set cmRankRange = worksheetSummary.Range( _
+        worksheetSummary.Cells(startRow, firstCol + 2), _
+        worksheetSummary.Cells(endRow, firstCol + 2))
+
+    If cmRank = "S" Then
+        cmRankRange.Interior.Color = RGB(255, 242, 204)
+    Else
+        cmRankRange.Interior.Color = RGB(248, 203, 173)
+    End If
+
+    'S/SSの既存書式（赤字・太字）を直接適用し、背景色と併用する
+    cmRankRange.Font.Color = RGB(255, 0, 0)
+    cmRankRange.Font.Bold = True
 
 End Sub
 
